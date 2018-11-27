@@ -305,7 +305,7 @@ class Message(models.Model):
             'id': attachment['id'],
             'filename': attachment['datas_fname'],
             'name': attachment['name'],
-            'mimetype': 'application/octet-stream' if safari and 'video' in attachment['mimetype'] else attachment['mimetype'],
+            'mimetype': 'application/octet-stream' if safari and attachment['mimetype'] and 'video' in attachment['mimetype'] else attachment['mimetype'],
         }) for attachment in attachments_data)
 
         # 3. Tracking values
@@ -767,7 +767,8 @@ class Message(models.Model):
                         'name': name,
                         'datas': match.group(2),
                         'datas_fname': name,
-                        'res_model': 'mail.message',
+                        'res_model': values.get('model'),
+                        'res_id': values.get('res_id'),
                     })
                     attachment.generate_access_token()
                     values['attachment_ids'].append((4, attachment.id))
