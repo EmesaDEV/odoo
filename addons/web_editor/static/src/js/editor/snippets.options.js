@@ -4,8 +4,8 @@ odoo.define('web_editor.snippets.options', function (require) {
 var core = require('web.core');
 var Dialog = require('web.Dialog');
 var Widget = require('web.Widget');
-var weContext = require('web_editor.context');
-var weWidgets = require('web_editor.widget');
+var weWidgets = require('wysiwyg.widgets');
+var summernoteCustomColors = require('web_editor.rte.summernote_custom_colors');
 
 var qweb = core.qweb;
 var _t = core._t;
@@ -17,29 +17,27 @@ var _t = core._t;
  */
 var SnippetOption = Widget.extend({
     events: {
-        'mouseenter a': '_onLinkEnter',
-        'click a': '_onLinkClick',
+        'mouseenter': '_onLinkEnter',
+        'mouseenter we-button': '_onLinkEnter',
+        'click': '_onLinkClick',
+        'click we-button': '_onLinkClick',
         'mouseleave': '_onMouseleave',
-        'mouseleave ul': '_onMouseleave',
+        'mouseleave we-button': '_onMouseleave',
     },
-    /**
-     * When editing a snippet, its options are shown alongside the ones of its
-     * parent snippets. The parent options are only shown if the following flag
-     * is set to false (default).
-     */
-    preventChildPropagation: false,
 
     /**
-     * The option `$el` is supposed to be the associated <li/> element in the
-     * options dropdown. The option controls another DOM element: the snippet it
+     * The option `$el` is supposed to be the associated DOM UI element.
+     * The option controls another DOM element: the snippet it
      * customizes, which can be found at `$target`. Access to the whole edition
      * overlay is possible with `$overlay` (this is not recommended though).
      *
      * @constructor
      */
-    init: function (parent, $target, $overlay, data) {
+    init: function (parent, $target, $overlay, data, options) {
         this._super.apply(this, arguments);
+        this.options = options;
         this.$target = $target;
+        this.ownerDocument = this.$target[0].ownerDocument;
         this.$overlay = $overlay;
         this.data = data;
         this.__methodNames = [];
@@ -60,7 +58,7 @@ var SnippetOption = Widget.extend({
      *
      * @abstract
      */
-    onFocus : function () {},
+    onFocus: function () {},
     /**
      * Called when the parent edition overlay is covering the associated snippet
      * for the first time, when it is a new snippet dropped from the d&d snippet
@@ -75,7 +73,7 @@ var SnippetOption = Widget.extend({
      *
      * @abstract
      */
-    onBlur : function () {},
+    onBlur: function () {},
     /**
      * Called when the associated snippet is the result of the cloning of
      * another snippet (so `this.$target` is a cloned element).
@@ -115,23 +113,25 @@ var SnippetOption = Widget.extend({
     /**
      * Default option method which allows to select one and only one class in
      * the option classes set and set it on the associated snippet. The common
-     * case is having a subdropdown with each <li/> having a `data-select-class`
+     * case is having a sub-collapse with each item having a `data-select-class`
      * value allowing to choose the associated class.
      *
      * @param {boolean|string} previewMode
      *        - truthy if the option is enabled for preview or if leaving it (in
      *          that second case, the value is 'reset')
      *        - false if the option should be activated for good
-     * @param {*} value - the class to activate ($li.data('selectClass'))
-     * @param {jQuery} $li - the related DOMElement option
+     * @param {*} value - the class to activate ($opt.data('selectClass'))
+     * @param {jQuery} $opt - the related DOMElement option
      */
-    selectClass: function (previewMode, value, $li) {
-        var $group = $li && $li.closest('.dropdown-submenu');
+    selectClass: function (previewMode, value, $opt) {
+        var $group = $opt && $opt.parents('we-collapse-area').last();
         if (!$group || !$group.length) {
             $group = this.$el;
         }
-        var $lis = $group.find('[data-select-class]').addBack('[data-select-class]');
-        var classes = $lis.map(function () {return $(this).data('selectClass');}).get().join(' ');
+        var $lis = $group.find('[data-select-class]');
+        var classes = $lis.map(function () {
+            return $(this).data('selectClass');
+        }).get().join(' ');
 
         this.$target.removeClass(classes);
         if (value) {
@@ -141,15 +141,19 @@ var SnippetOption = Widget.extend({
     /**
      * Default option method which allows to select one or multiple classes in
      * the option classes set and set it on the associated snippet. The common
-     * case is having a subdropdown with each <li/> having a `data-toggle-class`
+     * case is having a sub-collapse with each item having a `data-toggle-class`
      * value allowing to toggle the associated class.
      *
      * @see this.selectClass
      */
-    toggleClass: function (previewMode, value, $li) {
-        var $lis = this.$el.find('[data-toggle-class]').addBack('[data-toggle-class]');
-        var classes = $lis.map(function () {return $(this).data('toggleClass');}).get().join(' ');
-        var activeClasses = $lis.filter('.active, :has(.active)').map(function () {return $(this).data('toggleClass');}).get().join(' ');
+    toggleClass: function (previewMode, value, $opt) {
+        var $lis = this.$el.find('[data-toggle-class]');
+        var classes = $lis.map(function () {
+            return $(this).data('toggleClass');
+        }).get().join(' ');
+        var activeClasses = $lis.filter('.active, :has(.active)').map(function () {
+            return $(this).data('toggleClass');
+        }).get().join(' ');
 
         this.$target.removeClass(classes).addClass(activeClasses);
         if (value && previewMode !== 'reset') {
@@ -163,7 +167,7 @@ var SnippetOption = Widget.extend({
 
     /**
      * Override the helper method to search inside the $target element instead
-     * of the dropdown <li/> element.
+     * of the UI item element.
      *
      * @override
      */
@@ -206,7 +210,7 @@ var SnippetOption = Widget.extend({
      */
     _reset: function () {
         var self = this;
-        var $actives = this.$el.find('.active').addBack('.active');
+        var $actives = this.$el.find('we-button.active');
         _.each($actives, function (activeElement) {
             var $activeElement = $(activeElement);
             self.__methodNames = _.without.apply(_, [self.__methodNames].concat(_.keys($activeElement.data())));
@@ -225,13 +229,11 @@ var SnippetOption = Widget.extend({
      *        - truthy if the option is enabled for preview or if leaving it (in
      *          that second case, the value is 'reset')
      *        - false if the option should be activated for good
-     * @param {jQuery} $li - the related DOMElement option
+     * @param {jQuery} $opt - the related DOMElement option
      */
-    _select: function (previewMode, $li) {
-        var self = this;
-
+    _select: function (previewMode, $opt) {
         // Options can say they respond to strong choice
-        if (previewMode && ($li.data('noPreview') || $li.parent().data('noPreview'))) {
+        if (previewMode && ($opt.data('noPreview') || $opt.parent().data('noPreview'))) {
             return;
         }
         // If it is not preview mode, the user selected the option for good
@@ -243,7 +245,7 @@ var SnippetOption = Widget.extend({
 
         // Search for methods (data-...) (i.e. data-toggle-class) on the
         // selected (sub)option and its parents
-        var el = $li[0];
+        var el = $opt[0];
         var methods = [];
         do {
             methods.push([el, el.dataset]);
@@ -251,16 +253,16 @@ var SnippetOption = Widget.extend({
         } while (this.$el.parent().has(el).length);
 
         // Call the found method in the right order (parents -> child)
-        _.each(methods.reverse(), function (data) {
+        methods.reverse().forEach(data => {
             var $el = $(data[0]);
             var methods = data[1];
 
-            _.each(methods, function (value, methodName) {
-                if (self[methodName]) {
+            Object.keys(methods).forEach(methodName => {
+                if (this[methodName]) {
                     if (previewMode === true) {
-                        self.__methodNames.push(methodName);
+                        this.__methodNames.push(methodName);
                     }
-                    self[methodName](previewMode, value, $el);
+                    this[methodName](previewMode, methods[methodName], $el);
                 }
             });
         });
@@ -269,6 +271,8 @@ var SnippetOption = Widget.extend({
         if (!previewMode) {
             this._setActive();
         }
+
+        this.$target.trigger('content_changed');
     },
     /**
      * Tweaks the option DOM elements to show the selected value according to
@@ -279,15 +283,44 @@ var SnippetOption = Widget.extend({
      */
     _setActive: function () {
         var self = this;
-        this.$el.find('[data-toggle-class], [data-select-class]')
-            .addBack('[data-toggle-class], [data-select-class]')
+        this.$el.find('[data-toggle-class]')
             .removeClass('active')
             .filter(function () {
-                var $elem = $(this);
-                var className = $elem.data('toggleClass') || $elem.data('selectClass');
-                return self.$target.hasClass(className);
+                var className = $(this).data('toggleClass');
+                return !className || self.$target.hasClass(className);
             })
             .addClass('active');
+
+        // Get submenus which are not inside submenus
+        var $submenus = this.$el.find('we-collapse-area')
+            .not('we-collapse-area we-collapse-area');
+
+        // Add unique active class for each submenu active item
+        _.each($submenus, function (submenu) {
+            var $elements = $(submenu).find('[data-select-class]');
+            _processSelectClassElements($elements);
+        });
+
+        // Add unique active class for out-of-submenu active item
+        var $externalElements = this.$el.find('[data-select-class]')
+            .not('we-collapse-area *, we-collapse-area');
+        _processSelectClassElements($externalElements);
+
+        function _processSelectClassElements($elements) {
+            var maxNbClasses = -1;
+            $elements.removeClass('active')
+                .filter(function () {
+                    var className = $(this).data('selectClass');
+                    var nbClasses = className ? className.split(' ').length : 0;
+                    if (nbClasses >= maxNbClasses && (!className || self.$target.hasClass(className))) {
+                        maxNbClasses = nbClasses;
+                        return true;
+                    }
+                    return false;
+                })
+                .last()
+                .addClass('active');
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -302,20 +335,16 @@ var SnippetOption = Widget.extend({
      * @param {Event} ev
      */
     _onLinkEnter: function (ev) {
-        var $li = $(ev.currentTarget).parent();
-        if ($li.is('.dropdown-submenu')) {
-            var $menu = $li.children('.dropdown-menu');
-            if ($menu.length) {
-                var menuRightPosition = $li.offset().left + $li.outerWidth() + $menu.outerWidth();
-                $menu.toggleClass('o_open_to_left', menuRightPosition > $(window).outerWidth());
-            }
+        var $opt = $(ev.target).closest('we-button');
+        if (!$opt.length) {
+            return;
         }
 
-        if (!$li.is(':hasData')) {
+        if (!$opt.is(':hasData')) {
             return;
         }
         this.__click = false;
-        this._select(true, $li);
+        this._select(true, $opt);
         this.$target.trigger('snippet-option-preview', [this]);
     },
     /**
@@ -325,13 +354,14 @@ var SnippetOption = Widget.extend({
      * @param {Event} ev
      */
     _onLinkClick: function (ev) {
-        var $li = $(ev.currentTarget).parent(':hasData');
-        if (!$li.length) {
+        var $opt = $(ev.target).closest('we-button');
+        if (ev.isDefaultPrevented() || !$opt.length || !$opt.is(':hasData')) {
             return;
         }
+
         ev.preventDefault();
         this.__click = true;
-        this._select(false, $li);
+        this._select(false, $opt);
         this.$target.trigger('snippet-option-change', [this]);
     },
     /**
@@ -356,8 +386,6 @@ var SnippetOption = Widget.extend({
 var registry = {};
 
 registry.sizing = SnippetOption.extend({
-    preventChildPropagation: true,
-
     /**
      * @override
      */
@@ -366,11 +394,8 @@ registry.sizing = SnippetOption.extend({
         var def = this._super.apply(this, arguments);
 
         this.$handles = this.$overlay.find('.o_handle');
-        var resizeValues = this._getSize();
-        _.each(resizeValues, function (value, key) {
-            self.$handles.filter('.' + key).toggleClass('readonly', !value);
-        });
 
+        var resizeValues = this._getSize();
         this.$handles.on('mousedown', function (ev) {
             ev.preventDefault();
 
@@ -412,26 +437,26 @@ registry.sizing = SnippetOption.extend({
             var regClass = new RegExp('\\s*' + resize[0][begin].replace(/[-]*[0-9]+/, '[-]*[0-9]+'), 'g');
 
             var cursor = $handle.css('cursor') + '-important';
-            var $body = $(document.body);
+            var $body = $(this.ownerDocument.body);
             $body.addClass(cursor);
 
             var xy = ev['page' + XY];
-            var body_mousemove = function (ev) {
+            var bodyMouseMove = function (ev) {
                 ev.preventDefault();
 
                 var dd = ev['page' + XY] - xy + resize[1][begin];
-                var next = current + (current+1 === resize[1].length ? 0 : 1);
-                var prev = current ? (current-1) : 0;
+                var next = current + (current + 1 === resize[1].length ? 0 : 1);
+                var prev = current ? (current - 1) : 0;
 
                 var change = false;
-                if (dd > (2*resize[1][next] + resize[1][current])/3) {
-                    self.$target.attr('class', (self.$target.attr('class')||'').replace(regClass, ''));
+                if (dd > (2 * resize[1][next] + resize[1][current]) / 3) {
+                    self.$target.attr('class', (self.$target.attr('class') || '').replace(regClass, ''));
                     self.$target.addClass(resize[0][next]);
                     current = next;
                     change = true;
                 }
-                if (prev !== current && dd < (2*resize[1][prev] + resize[1][current])/3) {
-                    self.$target.attr('class', (self.$target.attr('class')||'').replace(regClass, ''));
+                if (prev !== current && dd < (2 * resize[1][prev] + resize[1][current]) / 3) {
+                    self.$target.attr('class', (self.$target.attr('class') || '').replace(regClass, ''));
                     self.$target.addClass(resize[0][prev]);
                     current = prev;
                     change = true;
@@ -443,9 +468,9 @@ registry.sizing = SnippetOption.extend({
                     $handle.addClass('o_active');
                 }
             };
-            var body_mouseup = function () {
-                $body.off('mousemove', body_mousemove);
-                $body.off('mouseup', body_mouseup);
+            var bodyMouseUp = function () {
+                $body.off('mousemove', bodyMouseMove);
+                $body.off('mouseup', bodyMouseUp);
                 $body.removeClass(cursor);
                 $handle.removeClass('o_active');
 
@@ -465,8 +490,8 @@ registry.sizing = SnippetOption.extend({
                     });
                 }, 0);
             };
-            $body.on('mousemove', body_mousemove);
-            $body.on('mouseup', body_mouseup);
+            $body.on('mousemove', bodyMouseMove);
+            $body.on('mouseup', bodyMouseUp);
         });
 
         return def;
@@ -475,7 +500,18 @@ registry.sizing = SnippetOption.extend({
      * @override
      */
     onFocus: function () {
+        var resizeValues = this._getSize();
+        _.each(resizeValues, (value, key) => {
+            this.$handles.filter('.' + key).toggleClass('readonly', !value);
+        });
+
         this._onResize();
+    },
+    /**
+     * @override
+     */
+    onBlur: function () {
+        this.$handles.addClass('readonly');
     },
 
     //--------------------------------------------------------------------------
@@ -549,6 +585,9 @@ registry.sizing = SnippetOption.extend({
             width: ml,
             left: '-' + ml,
         });
+        this.$overlay.find('.o_handle.e').css({
+            width: 0,
+        });
         _.each(this.$overlay.find(".o_handle.n, .o_handle.s"), function (handle) {
             var $handle = $(handle);
             var direction = $handle.hasClass('n') ? 'top': 'bottom';
@@ -560,7 +599,7 @@ registry.sizing = SnippetOption.extend({
 /**
  * Handles the edition of padding-top and padding-bottom.
  */
-registry.sizing_y = registry.sizing.extend({
+registry['sizing_y'] = registry.sizing.extend({
 
     //--------------------------------------------------------------------------
     // Private
@@ -582,13 +621,13 @@ registry.sizing_y = registry.sizing.extend({
         }
 
         var grid = [];
-        for (var i = 0 ; i <= 256/8 ; i++) {
+        for (var i = 0; i <= (256 / 8); i++) {
             grid.push(i * 8);
         }
         grid.splice(1, 0, 4);
         this.grid = {
-            n: [_.map(grid, function (v) { return nClass + v; }), grid, nProp],
-            s: [_.map(grid, function (v) { return sClass + v; }), grid, sProp],
+            n: [grid.map(v => nClass + v), grid, nProp],
+            s: [grid.map(v => sClass + v), grid, sProp],
         };
         return this.grid;
     },
@@ -619,8 +658,13 @@ registry.colorpicker = SnippetOption.extend({
         }
 
         if (!this.$el.find('.colorpicker').length) {
+            // TODO remove old UI's code that survived
             var $pt = $(qweb.render('web_editor.snippet.option.colorpicker'));
             var $clpicker = $(qweb.render('web_editor.colorpicker'));
+
+            _.each($clpicker.find('.o_colorpicker_section'), function (elem) {
+                $(elem).prepend("<div>" + elem.dataset.display + "</div>");
+            });
 
             // Retrieve excluded palettes list
             var excluded = [];
@@ -632,54 +676,33 @@ registry.colorpicker = SnippetOption.extend({
                 $pt.find('.note-palette-title').text(this.data.paletteTitle);
             }
 
-            var $toggles = $pt.find('.o_colorpicker_section_menu');
-            var $tabs = $pt.find('.o_colorpicker_section_tabs');
-
-            // Remove excluded palettes
+            // Remove excluded palettes (note: only hide them to still be able
+            // to remove their related colors on the DOM target)
             _.each(excluded, function (exc) {
-                $clpicker.find('[data-name="' + exc + '"]').remove();
+                $clpicker.find('[data-name="' + exc + '"]').addClass('d-none');
             });
 
-            var $sections = $clpicker.find('.o_colorpicker_section');
-
-            if ($sections.length > 1) { // Multi-palette layout
-                $sections.each(function () {
-                    var $section = $(this);
-                    var id = 'o_palette_' + $section.data('name') + _.uniqueId();
-
-                    var $li = $('<li/>')
-                                .append($('<a/>', {href: '#' + id})
-                                    .append($('<i/>', {'class': $section.data('iconClass') || '', html: $section.data('iconContent') || ''})));
-                    $toggles.append($li);
-
-                    $tabs.append($section.addClass('tab-pane').attr('id', id));
+            // Add common colors to palettes if not excluded
+            if (!('common' in excluded)) {
+                var $commonColorSection = $clpicker.find('[data-name="common"]');
+                _.each(summernoteCustomColors, function (colorRow, i) {
+                    var $div = $('<div/>', {class: 'clearfix'}).appendTo($commonColorSection);
+                    if (i === 0) {
+                        // Ignore the summernote gray palette and use ours
+                        return;
+                    }
+                    _.each(colorRow, function (color) {
+                        $div.append('<button class="o_custom_color" style="background-color: ' + color + '" />');
+                    });
                 });
-
-                // If a default palette is defined, make it active
-                if (this.data.paletteDefault) {
-                    var $palette_def = $tabs.find('div[data-name="' + self.data.paletteDefault + '"]');
-                    var pos = $tabs.find('> div').index($palette_def);
-
-                    $toggles.children('li').eq(pos).addClass('active');
-                    $palette_def.addClass('active');
-                } else {
-                    $toggles.find('li').first().addClass('active');
-                    $tabs.find('div').first().addClass('active');
-                }
-
-                $toggles.on('click mouseover', '> li > a', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    $(this).tab('show');
-                });
-            } else if ($sections.length === 1) { // Unique palette layout
-                $tabs.addClass('o_unique_palette').append($sections.addClass('tab-pane active'));
-            } else {
-                $toggles.parent().empty().append($clpicker);
             }
 
-            this.$el.find('li').append($pt);
+            $pt.find('.o_colorpicker_section_tabs').append($clpicker);
+            this.$el.find('we-collapse').append($pt);
         }
+
+
+        this._addCompatibilityColors(['primary', 'secondary', 'success', 'info', 'warning', 'danger']);
 
         var classes = [];
         this.$el.find('.colorpicker button').each(function () {
@@ -706,6 +729,30 @@ registry.colorpicker = SnippetOption.extend({
     //--------------------------------------------------------------------------
 
     /**
+     * Hardcode some existing colors (but make them hidden in the colorpicker)
+     * so they can be removed from snippets when selecting another color.
+     * Normally, the chosable colors do not contain them, which prevents them to
+     * be removed. For example, normally, the 'alpha' and 'beta' color (which
+     * are the same as primary and secondary) are displayed instead of their
+     * duplicates... but not for all themes.
+     *
+     * @private
+     * @param {string[]} colorNames
+     */
+    _addCompatibilityColors: function (colorNames) {
+        var $colorpicker = this.$el.find('.colorpicker');
+        _.each(colorNames, function (colorName) {
+            if (!$colorpicker.find('button[data-color="' + colorName + '"]').length) {
+                $colorpicker.append($('<button/>', {'class': 'd-none', 'data-color': colorName}));
+            }
+        });
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
      * Called when a color button is clicked -> confirm the preview.
      *
      * @private
@@ -728,6 +775,10 @@ registry.colorpicker = SnippetOption.extend({
         var color = $(ev.currentTarget).data('color');
         if (color) {
             this.$target.addClass(this.colorPrefix + color);
+        } else if ($(ev.target).hasClass('o_custom_color')) {
+            this.$target
+                .removeClass(this.classes)
+                .css('background-color', ev.currentTarget.style.backgroundColor);
         }
         this.$target.trigger('background-color-event', true);
     },
@@ -739,10 +790,14 @@ registry.colorpicker = SnippetOption.extend({
      */
     _onColorButtonLeave: function (ev) {
         this.$target.removeClass(this.classes);
+        this.$target.css('background-color', '');
         var $selected = this.$el.find('.colorpicker button.selected');
-        var color = $selected.length && $selected.data('color');
-        if (color) {
-            this.$target.addClass(this.colorPrefix + color);
+        if ($selected.length) {
+            if ($selected.data('color')) {
+                this.$target.addClass(this.colorPrefix + $selected.data('color'));
+            } else if ($selected.hasClass('o_custom_color')) {
+                this.$target.css('background-color', $selected.css('background-color'));
+            }
         }
         this.$target.trigger('background-color-event', 'reset');
     },
@@ -753,7 +808,8 @@ registry.colorpicker = SnippetOption.extend({
      * @private
      */
     _onColorResetButtonClick: function () {
-        this.$target.removeClass(this.classes);
+        this.$target.removeClass(this.classes).css('background-color', '');
+        this.$target.trigger('content_changed');
         this.$el.find('.colorpicker button.selected').removeClass('selected');
     },
 });
@@ -781,7 +837,7 @@ registry.background = SnippetOption.extend({
      *
      * @see this.selectClass for parameters
      */
-    background: function (previewMode, value, $li) {
+    background: function (previewMode, value, $opt) {
         if (previewMode === 'reset' && value === undefined) {
             // No background has been selected and we want to reset back to the
             // original custom image
@@ -800,32 +856,28 @@ registry.background = SnippetOption.extend({
     /**
      * @override
      */
-    selectClass: function (previewMode, value, $li) {
-        this.background(previewMode, '', $li);
-        this._super(previewMode, value ? (value + ' oe_img_bg') : value, $li);
+    selectClass: function (previewMode, value, $opt) {
+        this.background(previewMode, '', $opt);
+        this._super(previewMode, value ? (value + ' oe_img_bg') : value, $opt);
     },
     /**
      * Opens a media dialog to add a custom background image.
      *
      * @see this.selectClass for parameters
      */
-    chooseImage: function (previewMode, value, $li) {
-        // Put fake image in the DOM, edit it and use it as background-image
-        var $image = $('<img/>', {class: 'hidden', src: value}).appendTo(this.$target);
+    chooseImage: function (previewMode, value, $opt) {
+        var options = this._getMediaDialogOptions();
+        var media = this._getEditableMedia();
 
-        var $editable = this.$target.closest('.o_editable');
-        var _editor = new weWidgets.MediaDialog(this, {
-            onlyImages: true,
-            firstFilters: ['background'],
-            res_model: $editable.data('oe-model'),
-            res_id: $editable.data('oe-id'),            
-        }, null, $image[0]).open();
-
-        _editor.on('save', this, function () {
-            this._setCustomBackground($image.attr('src'));
+        var _editor = new weWidgets.MediaDialog(this, options, media).open();
+        _editor.on('save', this, data => {
+            this._onSaveMediaDialog(data);
+            this.$target.trigger('content_changed');
         });
-        _editor.on('closed', this, function () {
-            $image.remove();
+        _editor.on('closed', this, () => {
+            if (media.classList.contains('o_we_fake_image')) {
+                media.parentNode.removeChild(media);
+            }
         });
     },
 
@@ -838,28 +890,56 @@ registry.background = SnippetOption.extend({
      * image is removed.
      */
     bindBackgroundEvents: function () {
+        if (this.$target.is('.parallax, .s_parallax_bg')) {
+            return;
+        }
         this.$target.off('.background-option')
-            .on('background-color-event.background-option', (function (e, previewMode) {
-                e.stopPropagation();
-                if (e.currentTarget !== e.target) return;
-                if (previewMode === false) {
-                    this.__customImageSrc = undefined;
-                }
-                this.background(previewMode);
-            }).bind(this));
+            .on('background-color-event.background-option', this._onBackgroundColorUpdate.bind(this));
     },
     /**
      * @override
      */
     setTarget: function () {
         this._super.apply(this, arguments);
+        // TODO should be automatic for all options as equal to the start method
         this.bindBackgroundEvents();
+        this.__customImageSrc = this._getSrcFromCssValue();
     },
 
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
 
+    /**
+     * Returns a media element the media dialog will be able to edit to use
+     * the result as the snippet's background somehow.
+     *
+     * @private
+     * @returns {HTMLElement}
+     */
+    _getEditableMedia: function () {
+        var $image = $('<img/>', {
+            class: 'd-none o_we_fake_image',
+        }).appendTo(this.$target);
+        return $image[0];
+    },
+    /**
+     * Returns the options to be given to the MediaDialog instance when choosing
+     * a snippet's background.
+     *
+     * @private
+     * @returns {Object}
+     */
+    _getMediaDialogOptions: function () {
+        var $editable = this.$target.closest('.o_editable');
+        return {
+            noDocuments: true,
+            noIcons: true,
+            noVideos: true,
+            res_model: $editable.data('oe-model'),
+            res_id: $editable.data('oe-id'),
+        };
+    },
     /**
      * Returns the src value from a css value related to a background image
      * (e.g. "url('blabla')" => "blabla" / "none" => "").
@@ -872,7 +952,8 @@ registry.background = SnippetOption.extend({
         if (value === undefined) {
             value = this.$target.css('background-image');
         }
-        return value.replace(/url\(['"]*|['"]*\)|^none$/g, '');
+        var srcValueWrapper = /url\(['"]*|['"]*\)|^none$/g;
+        return value && value.replace(srcValueWrapper, '') || '';
     },
     /**
      * @override
@@ -881,7 +962,7 @@ registry.background = SnippetOption.extend({
         this._super.apply(this, arguments);
 
         var src = this._getSrcFromCssValue();
-        this.$el.find('li[data-background]')
+        this.$el.find('[data-background]')
             .removeClass('active')
             .filter(function () {
                 var bgOption = $(this).data('background');
@@ -889,7 +970,7 @@ registry.background = SnippetOption.extend({
             })
             .addClass('active');
 
-        this.$el.find('li[data-choose-image]').toggleClass('active', this.$target.hasClass('oe_custom_bg'));
+        this.$el.find('[data-choose-image]').toggleClass('active', this.$target.hasClass('oe_custom_bg'));
     },
     /**
      * Sets the given value as custom background image.
@@ -898,18 +979,54 @@ registry.background = SnippetOption.extend({
      * @param {string} value
      */
     _setCustomBackground: function (value) {
-        this.__customImageSrc = this._getSrcFromCssValue(value);
+        this.__customImageSrc = value;
         this.background(false, this.__customImageSrc);
-        this.$target.addClass('oe_custom_bg');
+        this.$target.toggleClass('oe_custom_bg', !!value);
         this._setActive();
         this.$target.trigger('snippet-option-change', [this]);
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * Called on background-color update (useful to remove the background to be
+     * able to see the chosen color).
+     *
+     * @private
+     * @param {Event} ev
+     * @param {boolean|string} previewMode
+     * @returns {boolean} true if the color has been applied (removing the
+     *                    background)
+     */
+    _onBackgroundColorUpdate: function (ev, previewMode) {
+        ev.stopPropagation();
+        if (ev.currentTarget !== ev.target) {
+            return false;
+        }
+        if (previewMode === false) {
+            this.__customImageSrc = undefined;
+        }
+        this.background(previewMode);
+        return true;
+    },
+    /**
+     * Called on media dialog save (when choosing a snippet's background) ->
+     * sets the resulting media as the snippet's background somehow.
+     *
+     * @private
+     * @param {Object} data
+     */
+    _onSaveMediaDialog: function (data) {
+        this._setCustomBackground($(data).attr('src'));
     },
 });
 
 /**
  * Handles the edition of snippet's background image position.
  */
-registry.background_position = SnippetOption.extend({
+registry['background_position'] = SnippetOption.extend({
     xmlDependencies: ['/web_editor/static/src/xml/editor.xml'],
 
     /**
@@ -926,7 +1043,7 @@ registry.background_position = SnippetOption.extend({
      * @override
      */
     onFocus: function () {
-        this.$el.toggleClass('hidden', this.$target.css('background-image') === 'none');
+        this.$el.toggleClass('d-none', this.$target.css('background-image') === 'none');
     },
 
     //--------------------------------------------------------------------------
@@ -938,13 +1055,13 @@ registry.background_position = SnippetOption.extend({
      *
      * @see this.selectClass for parameters
      */
-    backgroundPosition: function (previewMode, value, $li) {
+    backgroundPosition: function (previewMode, value, $opt) {
         var self = this;
 
-        this.previous_state = [this.$target.attr('class'), this.$target.css('background-size'), this.$target.css('background-position')];
+        this.previousState = [this.$target.attr('class'), this.$target.css('background-size'), this.$target.css('background-position')];
 
-        this.bg_pos = self.$target.css('background-position').split(' ');
-        this.bg_siz = self.$target.css('background-size').split(' ');
+        this.bgPos = self.$target.css('background-position').split(' ');
+        this.bgSize = self.$target.css('background-size').split(' ');
 
         this.modal = new Dialog(null, {
             title: _t("Background Image Sizing"),
@@ -957,7 +1074,7 @@ registry.background_position = SnippetOption.extend({
 
         this.modal.opened().then(function () {
             // Fetch data form $target
-            var value = ((self.$target.hasClass('o_bg_img_opt_contain'))? 'contain' : ((self.$target.hasClass('o_bg_img_opt_custom'))? 'custom' : 'cover'));
+            var value = ((self.$target.hasClass('o_bg_img_opt_contain')) ? 'contain' : ((self.$target.hasClass('o_bg_img_opt_custom')) ? 'custom' : 'cover'));
             self.modal.$('> label > input[value=' + value + ']').prop('checked', true);
 
             if (self.$target.hasClass('o_bg_img_opt_repeat')) {
@@ -969,26 +1086,26 @@ registry.background_position = SnippetOption.extend({
                 self.modal.$('#o_bg_img_opt_custom_repeat').val('o_bg_img_opt_repeat_y');
             }
 
-            if (self.bg_pos.length > 1) {
-                self.bg_pos = {
-                    x: self.bg_pos[0],
-                    y: self.bg_pos[1],
+            if (self.bgPos.length > 1) {
+                self.bgPos = {
+                    x: self.bgPos[0],
+                    y: self.bgPos[1],
                 };
-                self.modal.$('#o_bg_img_opt_custom_pos_x').val(self.bg_pos.x.replace('%', ''));
-                self.modal.$('#o_bg_img_opt_custom_pos_y').val(self.bg_pos.y.replace('%', ''));
+                self.modal.$('#o_bg_img_opt_custom_pos_x').val(self.bgPos.x.replace('%', ''));
+                self.modal.$('#o_bg_img_opt_custom_pos_y').val(self.bgPos.y.replace('%', ''));
             }
-            if (self.bg_siz.length > 1) {
-                self.modal.$('#o_bg_img_opt_custom_size_x').val(self.bg_siz[0].replace('%', ''));
-                self.modal.$('#o_bg_img_opt_custom_size_y').val(self.bg_siz[1].replace('%', ''));
+            if (self.bgSize.length > 1) {
+                self.modal.$('#o_bg_img_opt_custom_size_x').val(self.bgSize[0].replace('%', ''));
+                self.modal.$('#o_bg_img_opt_custom_size_y').val(self.bgSize[1].replace('%', ''));
             }
 
             // Focus Point
-            self.$focus  = self.modal.$('.o_focus_point');
+            self.$focus = self.modal.$('.o_focus_point');
             self._updatePosInformation();
 
-            var img_url = /\(['"]?([^'"]+)['"]?\)/g.exec(self.$target.css('background-image'));
-            img_url = (img_url && img_url[1]) || '';
-            var $img = $('<img/>', {class: 'img img-responsive', src: img_url});
+            var imgURL = /\(['"]?([^'"]+)['"]?\)/g.exec(self.$target.css('background-image'));
+            imgURL = (imgURL && imgURL[1]) || '';
+            var $img = $('<img/>', {class: 'img img-fluid', src: imgURL});
             $img.on('load', function () {
                 self._bindImageEvents($img);
             });
@@ -1042,9 +1159,9 @@ registry.background_position = SnippetOption.extend({
         function _update(e) {
             var posX = e.pageX - $(e.target).offset().left;
             var posY = e.pageY - $(e.target).offset().top;
-            self.bg_pos = {
-                x: clipValue(posX/$img.width()*100).toFixed(2) + '%',
-                y: clipValue(posY/$img.height()*100).toFixed(2) + '%',
+            self.bgPos = {
+                x: clipValue(posX / $img.width() * 100).toFixed(2) + '%',
+                y: clipValue(posY / $img.height() * 100).toFixed(2) + '%',
             };
             self._updatePosInformation();
             self._saveChanges();
@@ -1073,10 +1190,10 @@ registry.background_position = SnippetOption.extend({
      */
     _discardChanges: function () {
         this._clean();
-        if (this.previous_state) {
-            this.$target.addClass(this.previous_state[0]).css({
-                'background-size': this.previous_state[1],
-                'background-position': this.previous_state[2],
+        if (this.previousState) {
+            this.$target.addClass(this.previousState[0]).css({
+                'background-size': this.previousState[1],
+                'background-position': this.previousState[2],
             });
         }
     },
@@ -1086,11 +1203,11 @@ registry.background_position = SnippetOption.extend({
      * @private
      */
     _updatePosInformation: function () {
-        this.modal.$('.o_bg_img_opt_ui_info .o_x').text(this.bg_pos.x);
-        this.modal.$('.o_bg_img_opt_ui_info .o_y').text(this.bg_pos.y);
+        this.modal.$('.o_bg_img_opt_ui_info .o_x').text(this.bgPos.x);
+        this.modal.$('.o_bg_img_opt_ui_info .o_y').text(this.bgPos.y);
         this.$focus.css({
-            left: this.bg_pos.x,
-            top: this.bg_pos.y,
+            left: this.bgPos.x,
+            top: this.bgPos.y,
         });
     },
     /**
@@ -1101,10 +1218,10 @@ registry.background_position = SnippetOption.extend({
     _saveChanges: function () {
         this._clean();
 
-        var bg_img_size = this.modal.$('> :not(label):not(.o_hidden)').data('value') || 'cover';
-        switch (bg_img_size) {
+        var bgImgSize = this.modal.$('> :not(label):not(.o_hidden)').data('value') || 'cover';
+        switch (bgImgSize) {
             case 'cover':
-                this.$target.css('background-position', this.bg_pos.x + ' ' + this.bg_pos.y);
+                this.$target.css('background-position', this.bgPos.x + ' ' + this.bgPos.y);
                 break;
             case 'contain':
                 this.$target.addClass('o_bg_img_opt_contain');
@@ -1118,8 +1235,8 @@ registry.background_position = SnippetOption.extend({
                 var posY = this.modal.$('#o_bg_img_opt_custom_pos_y').val();
                 this.$target.addClass(this.modal.$('#o_bg_img_opt_custom_repeat').val())
                             .css({
-                                'background-size': ((sizeX)? sizeX + '%' : 'auto') + ' ' + ((sizeY)? sizeY + '%' : 'auto'),
-                                'background-position': ((posX)? posX + '%' : 'auto') + ' ' + ((posY)? posY + '%' : 'auto'),
+                                'background-size': (sizeX ? sizeX + '%' : 'auto') + ' ' + (sizeY ? sizeY + '%' : 'auto'),
+                                'background-position': (posX ? posX + '%' : 'auto') + ' ' + (posY ? posY + '%' : 'auto'),
                             });
                 break;
         }
@@ -1137,13 +1254,18 @@ registry.many2one = SnippetOption.extend({
      */
     start: function () {
         var self = this;
+        this.trigger_up('getRecordInfo', _.extend(this.options, {
+            callback: function (recordInfo) {
+                _.defaults(self.options, recordInfo);
+            },
+        }));
 
         this.Model = this.$target.data('oe-many2one-model');
         this.ID = +this.$target.data('oe-many2one-id');
 
         // create search button and bind search bar
         this.$btn = $(qweb.render('web_editor.many2one.button'))
-            .insertAfter(this.$overlay.find('.oe_options'));
+            .prependTo(this.$el);
 
         this.$ul = this.$btn.find('ul');
         this.$search = this.$ul.find('li:first');
@@ -1153,22 +1275,16 @@ registry.many2one = SnippetOption.extend({
 
         // move menu item
         setTimeout(function () {
-            if (self.$overlay.find('.oe_options').hasClass('hidden')) {
-                self.$btn.css('height', '0').find('> a').addClass('hidden');
-                self.$ul.show().css({
-                    'top': '-24px', 'margin': '0', 'padding': '2px 0', 'position': 'relative'
-                });
-            } else {
-                self.$btn.find('a').on('click', function (e) {
-                    self._clear();
-                });
-            }
-        },0);
+            self.$btn.find('a').on('click', function (e) {
+                self._clear();
+            });
+        }, 0);
 
         // bind search input
         this.$search.find('input')
             .focus()
             .on('keyup', function (e) {
+                self.$overlay.removeClass('o_keypress');
                 self._findExisting($(this).val());
             });
 
@@ -1209,7 +1325,7 @@ registry.many2one = SnippetOption.extend({
      *
      * @private
      * @param {string} name
-     * @returns {Deferred}
+     * @returns {Promise}
      */
     _findExisting: function (name) {
         var self = this;
@@ -1235,11 +1351,11 @@ registry.many2one = SnippetOption.extend({
             kwargs: {
                 order: [{name: 'name', asc: false}],
                 limit: 5,
-                context: weContext.get(),
+                context: this.options.context,
             },
         }).then(function (result) {
             self.$search.siblings().remove();
-            self.$search.after(qweb.render('web_editor.many2one.search',{contacts:result}));
+            self.$search.after(qweb.render('web_editor.many2one.search', {contacts: result}));
         });
     },
     /**
@@ -1259,10 +1375,10 @@ registry.many2one = SnippetOption.extend({
 
         if (self.$target.data('oe-type') === 'contact') {
             $('[data-oe-contact-options]')
-                .filter('[data-oe-model="'+self.$target.data('oe-model')+'"]')
-                .filter('[data-oe-id="'+self.$target.data('oe-id')+'"]')
-                .filter('[data-oe-field="'+self.$target.data('oe-field')+'"]')
-                .filter('[data-oe-contact-options!="'+self.$target.data('oe-contact-options')+'"]')
+                .filter('[data-oe-model="' + self.$target.data('oe-model') + '"]')
+                .filter('[data-oe-id="' + self.$target.data('oe-id') + '"]')
+                .filter('[data-oe-field="' + self.$target.data('oe-field') + '"]')
+                .filter('[data-oe-contact-options!="' + self.$target.data('oe-contact-options') + '"]')
                 .add(self.$target)
                 .attr('data-oe-many2one-id', self.ID).data('oe-many2one-id', self.ID)
                 .each(function () {
@@ -1274,7 +1390,7 @@ registry.many2one = SnippetOption.extend({
                         args: [[self.ID]],
                         kwargs: {
                             options: options,
-                            context: weContext.get(),
+                            context: self.options.context,
                         },
                     }).then(function (html) {
                         $node.html(html);

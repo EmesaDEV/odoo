@@ -31,7 +31,7 @@ QUnit.module('mobile_base_settings_tests', {
 
     QUnit.module('BaseSettings Mobile');
 
-    QUnit.test('swipe settings in mobile', function (assert) {
+    QUnit.test('swipe settings in mobile', async function (assert) {
         assert.expect(2);
 
         // mimic touchSwipe library's swipe method
@@ -42,7 +42,7 @@ QUnit.module('mobile_base_settings_tests', {
             swipeRight = params.swipeRight;
         };
 
-        var form = createView({
+        var form = await createView({
             View: BaseSettingsView,
             model: 'project',
             data: this.data,
@@ -52,7 +52,7 @@ QUnit.module('mobile_base_settings_tests', {
                         '<div class="settings">' +
                             '<div class="app_settings_block" data-string="CRM" data-key="crm">' +
                                 '<div class="row mt16 o_settings_container">'+
-                                    '<div class="col-xs-12 col-md-6 o_setting_box">'+
+                                    '<div class="col-12 col-lg-6 o_setting_box">'+
                                         '<div class="o_setting_left_pane">' +
                                             '<field name="bar"/>'+
                                         '</div>'+
@@ -67,7 +67,7 @@ QUnit.module('mobile_base_settings_tests', {
                             '</div>' +
                             '<div class="app_settings_block" data-string="Project" data-key="project">' +
                                 '<div class="row mt16 o_settings_container">'+
-                                    '<div class="col-xs-12 col-md-6 o_setting_box">'+
+                                    '<div class="col-12 col-lg-6 o_setting_box">'+
                                         '<div class="o_setting_left_pane">' +
                                             '<field name="foo"/>'+
                                         '</div>'+

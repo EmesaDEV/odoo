@@ -16,23 +16,23 @@ var GraphRenderer = require('web.GraphRenderer');
 var _t = core._t;
 var _lt = core._lt;
 
+var controlPanelViewParameters = require('web.controlPanelViewParameters');
+var GROUPABLE_TYPES = controlPanelViewParameters.GROUPABLE_TYPES;
+
 var GraphView = AbstractView.extend({
     display_name: _lt('Graph'),
     icon: 'fa-bar-chart',
-    cssLibs: [
-        '/web/static/lib/nvd3/nv.d3.css'
-    ],
     jsLibs: [
-        '/web/static/lib/nvd3/d3.v3.js',
-        '/web/static/lib/nvd3/nv.d3.js',
-        '/web/static/src/js/libs/nvd3.js'
+        '/web/static/lib/Chart/Chart.js',
     ],
-    config: {
+    config: _.extend({}, AbstractView.prototype.config, {
         Model: GraphModel,
         Controller: Controller,
         Renderer: GraphRenderer,
-    },
+    }),
     viewType: 'graph',
+    searchMenuTypes: ['filter', 'groupBy', 'timeRange', 'favorite'],
+
     /**
      * @override
      */
@@ -43,18 +43,23 @@ var GraphView = AbstractView.extend({
         var measure;
         var groupBys = [];
         var measures = {__count__: {string: _t("Count"), type: "integer"}};
+        var groupableFields = {};
         this.fields.__count__ = {string: _t("Count"), type: "integer"};
 
         this.arch.children.forEach(function (field) {
-            var name = field.attrs.name;
-            if (field.attrs.interval) {
-                name += ':' + field.attrs.interval;
+            var fieldName = field.attrs.name;
+            if (fieldName === "id") {
+                return;
+            }
+            var interval = field.attrs.interval;
+            if (interval) {
+                fieldName = fieldName + ':' + interval;
             }
             if (field.attrs.type === 'measure') {
-                measure = name;
-                measures[name] = self.fields[name];
+                measure = fieldName;
+                measures[fieldName] = self.fields[fieldName];
             } else {
-                groupBys.push(name);
+                groupBys.push(fieldName);
             }
         });
 
@@ -64,16 +69,23 @@ var GraphView = AbstractView.extend({
                     _.contains(params.additionalMeasures, name)) {
                         measures[name] = field;
                 }
+                if (_.contains(GROUPABLE_TYPES, field.type)) {
+                    groupableFields[name] = field;
+                }
             }
         });
 
         this.controllerParams.measures = measures;
-        this.rendererParams.stacked = this.arch.attrs.stacked !== "False";
+        this.controllerParams.groupableFields = groupableFields;
+        this.rendererParams.fields = this.fields;
+        this.rendererParams.title = this.arch.attrs.title; // TODO: use attrs.string instead
 
         this.loadParams.mode = this.arch.attrs.type || 'bar';
         this.loadParams.measure = measure || '__count__';
-        this.loadParams.groupBys = groupBys || [];
+        this.loadParams.groupBys = groupBys;
         this.loadParams.fields = this.fields;
+        this.loadParams.comparisonDomain = params.comparisonDomain;
+        this.loadParams.stacked = this.arch.attrs.stacked !== "False";
     },
 });
 

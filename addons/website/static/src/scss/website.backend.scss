@@ -15,12 +15,12 @@
             h2, h4 {
                 text-transform: uppercase;
                 margin-top: 0;
-                color: $o-brand-primary;
+                color: $o-brand-odoo;
             }
 
             h4 { margin: 0 0 0 8px; }
 
-            .col-md-7, .col-xs-12 {
+            .col-lg-7, .col-12 {
                 padding: 15px;
 
                 .js_field_selection {
@@ -61,65 +61,6 @@
                         text-align: left;
                     }
                 }
-
-                /*------------------------------------------*/
-                /*              Chart design                */
-                /*------------------------------------------*/
-
-                .gapi-analytics-data-chart svg g path, svg [class*="nv-series-"] {
-                    stroke: $o-main-color-muted !important;
-                }
-
-                svg {
-                    padding-top: 2px;
-                    float: left;
-
-                    g.nvd3.nv-wrap.nv-lineChart {
-                        @include translate(45, 30); // FIXME was marked important before scss convertion
-                    }
-
-                    g.nv-x.nv-axis .tick > line {
-                        opacity: 0 !important;
-                    }
-
-                    .nv-groups {
-                        .nv-series-0 {
-                            stroke-width: 3 !important;
-                            .nv-point {
-                                stroke: $o-brand-optional;
-                                stroke-opacity: 1 !important;
-                                &.hover {
-                                    stroke: darken($o-brand-optional, 10%);
-                                }
-                            }
-                        }
-                        .nv-series-1 {
-                            .nv-point {
-                                stroke: $o-main-color-muted !important;
-                                stroke-opacity: 1 !important;
-                                &.hover {
-                                    stroke: darken($o-main-color-muted, 10%);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                .nvtooltip {
-                    border-radius: 0;
-                    border: 1px solid $gray-lighter;
-                    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-
-                    .legend-color-guide > div {
-                        border: none;
-                    }
-                    tr:first-child .legend-color-guide > div {
-                        background-color: $o-brand-optional !important;
-                    }
-                    tr:last-child .legend-color-guide > div {
-                        background-color: darken($o-brand-lightsecondary, 10%) !important;
-                    }
-                }
             }
         }
 
@@ -129,11 +70,11 @@
                 flex-flow: row wrap;
                 justify-content: flex-start;
                 > .o_inner_box {
-                    @media (max-width: $screen-sm-min) {
+                    @include media-breakpoint-down(sm) {
                         flex: 1 1 200px;
                         display: block !important;
                     }
-                    @media (min-width: $screen-sm-min) {
+                    @include media-breakpoint-up(md) {
                         flex: 0 0 16.6%;
                     }
                 }
@@ -148,15 +89,15 @@
                 white-space: nowrap;
                 cursor: pointer;
                 color: white;
-                background-color: $o-brand-optional;
-                    &:hover {
-                        background-color: darken($o-brand-optional, 10%);
-                    }
-                &.o_primary {
-                    background-color: $o-brand-primary;
-                    color: white;
+                background-color: $o-brand-primary;
                     &:hover {
                         background-color: darken($o-brand-primary, 10%);
+                    }
+                &.o_primary {
+                    background-color: $o-brand-odoo;
+                    color: white;
+                    &:hover {
+                        background-color: darken($o-brand-odoo, 10%);
                     }
                 }
                 .o_highlight {
@@ -166,8 +107,9 @@
         }
 
         .o_graph_sales {
+            direction: ltr#{"/*rtl:ignore*/"};
             .o_legend0 {
-                background-color: $o-brand-optional;
+                background-color: $o-brand-primary;
             }
             .o_legend1 {
                 background-color: $o-main-color-muted;
@@ -190,7 +132,6 @@
 
                 .o_buttons {
                     position: relative;
-                    z-index: 10;
 
                     > button {
                         display: block;
@@ -209,8 +150,8 @@
 
             .o_properties_selection {
 
-                @media (min-width: $screen-md-min) {
-                    @include o-flex-display;
+                @include media-breakpoint-up(lg) {
+                    display: flex;
                 }
 
                 margin-top: 10px;
@@ -224,9 +165,8 @@
             .ActiveUsers {
                 position: relative;
                 float: right;
-                top: -60px;
                 right: 10px;
-                border: 1px solid $gray-lighter;
+                border: 1px solid gray('200');
                 font-weight: 300;
                 white-space: nowrap;
                 padding: .5em 1.5em;
@@ -249,17 +189,17 @@
 
             @keyframes increase {
               10% {
-                background-color: lighten($o-brand-optional, 30%);
-                border-color: $o-brand-optional;
-                color: $o-brand-optional;
+                background-color: lighten($o-brand-primary, 30%);
+                border-color: $o-brand-primary;
+                color: $o-brand-primary;
               }
             }
 
             @keyframes decrease {
               10% {
-                background-color: lighten($o-brand-optional, 30%);
-                border-color: $o-brand-optional;
-                color: $o-brand-optional;
+                background-color: lighten($o-brand-primary, 30%);
+                border-color: $o-brand-primary;
+                color: $o-brand-primary;
               }
             }
         }
@@ -274,5 +214,14 @@
             width: 100%;
             height: 20em;
         }
+    }
+}
+
+.oe_stat_button {
+    &.o_stat_button_info:hover {
+        color: #666666 !important;
+        background-color: transparent !important;
+        opacity: 0.8 !important;
+        cursor: default !important;
     }
 }

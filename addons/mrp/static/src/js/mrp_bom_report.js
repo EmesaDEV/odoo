@@ -6,12 +6,14 @@ var framework = require('web.framework');
 var stock_report_generic = require('stock.stock_report_generic');
 
 var QWeb = core.qweb;
+var _t = core._t;
 
 var MrpBomReport = stock_report_generic.extend({
     events: {
         'click .o_mrp_bom_unfoldable': '_onClickUnfold',
         'click .o_mrp_bom_foldable': '_onClickFold',
         'click .o_mrp_bom_action': '_onClickAction',
+        'click .o_mrp_show_attachment_action': '_onClickShowAttachment',
     },
     get_html: function() {
         var self = this;
@@ -23,7 +25,8 @@ var MrpBomReport = stock_report_generic.extend({
         return this._rpc({
                 model: 'report.mrp.report_bom_structure',
                 method: 'get_html',
-                args: args
+                args: args,
+                context: this.given_context,
             })
             .then(function (result) {
                 self.data = result;
@@ -32,12 +35,22 @@ var MrpBomReport = stock_report_generic.extend({
     set_html: function() {
         var self = this;
         return this._super().then(function () {
-            self.$el.html(self.data.lines);
+            self.$('.o_content').html(self.data.lines);
             self.renderSearch();
             self.update_cp();
         });
     },
     render_html: function(event, $el, result){
+        if (result.indexOf('mrp.document') > 0) {
+            if (this.$('.o_mrp_has_attachments').length === 0) {
+                var column = $('<th/>', {
+                    class: 'o_mrp_has_attachments',
+                    title: 'Files attached to the product Attachments',
+                    text: 'Attachments',
+                });
+                this.$('table thead th:last-child').after(column);
+            }
+        }
         $el.after(result);
         $(event.currentTarget).toggleClass('o_mrp_bom_foldable o_mrp_bom_unfoldable fa-caret-right fa-caret-down');
         this._reload_report_type();
@@ -58,7 +71,7 @@ var MrpBomReport = stock_report_generic.extend({
                   productID,
                   parseFloat(qty),
                   lineID,
-                  level + 1
+                  level + 1,
               ]
           })
           .then(function (result) {
@@ -91,12 +104,12 @@ var MrpBomReport = stock_report_generic.extend({
                 $searchview_buttons: this.$searchView
             },
         };
-        return this.update_control_panel(status);
+        return this.updateControlPanel(status);
     },
     renderSearch: function () {
         this.$buttonPrint = $(QWeb.render('mrp.button'));
-        this.$buttonPrint.filter('.o_mrp_bom_print').on('click', this._onClickPrint.bind(this));
-        this.$buttonPrint.filter('.o_mrp_bom_print_unfolded').on('click', this._onClickPrint.bind(this));
+        this.$buttonPrint.find('.o_mrp_bom_print').on('click', this._onClickPrint.bind(this));
+        this.$buttonPrint.find('.o_mrp_bom_print_unfolded').on('click', this._onClickPrint.bind(this));
         this.$searchView = $(QWeb.render('mrp.report_bom_search', _.omit(this.data, 'lines')));
         this.$searchView.find('.o_mrp_bom_report_qty').on('change', this._onChangeQty.bind(this));
         this.$searchView.find('.o_mrp_bom_report_variants').on('change', this._onChangeVariants.bind(this));
@@ -107,11 +120,11 @@ var MrpBomReport = stock_report_generic.extend({
             return $(el).data('id');
         });
         framework.blockUI();
-        var reportname = 'mrp.report_bom_structure?docids=' + this.given_context.active_id;
+        var reportname = 'mrp.report_bom_structure?docids=' + this.given_context.active_id +
+                         '&report_type=' + this.given_context.report_type +
+                         '&quantity=' + (this.given_context.searchQty || 1);
         if (! $(ev.currentTarget).hasClass('o_mrp_bom_print_unfolded')) {
-            reportname += '&quantity=' + (this.given_context.searchQty || 1) +
-                          '&childs=' + JSON.stringify(childBomIDs) +
-                          '&report_type=' + this.given_context.report_type;
+            reportname += '&childs=' + JSON.stringify(childBomIDs);
         }
         if (this.given_context.searchVariant) {
             reportname += '&variant=' + this.given_context.searchVariant;
@@ -151,28 +164,42 @@ var MrpBomReport = stock_report_generic.extend({
         $(ev.currentTarget).toggleClass('o_mrp_bom_foldable o_mrp_bom_unfoldable fa-caret-right fa-caret-down');
     },
     _onClickAction: function (ev) {
+        ev.preventDefault();
         return this.do_action({
             type: 'ir.actions.act_window',
             res_model: $(ev.currentTarget).data('model'),
             res_id: $(ev.currentTarget).data('res-id'),
+            context: {
+                'active_id': $(ev.currentTarget).data('res-id')
+            },
             views: [[false, 'form']],
             target: 'current'
+        });
+    },
+    _onClickShowAttachment: function (ev) {
+        ev.preventDefault();
+        var ids = $(ev.currentTarget).data('res-id');
+        return this.do_action({
+            name: _t('Attachments'),
+            type: 'ir.actions.act_window',
+            res_model: $(ev.currentTarget).data('model'),
+            domain: [['id', 'in', ids]],
+            views: [[false, 'kanban'], [false, 'list'], [false, 'form']],
+            view_mode: 'kanban,list,form',
+            target: 'current',
         });
     },
     _reload: function () {
         var self = this;
         return this.get_html().then(function () {
-            self.$el.html(self.data.lines);
+            self.$('.o_content').html(self.data.lines);
             self._reload_report_type();
         });
     },
     _reload_report_type: function () {
         this.$('.o_mrp_bom_cost.o_hidden, .o_mrp_prod_cost.o_hidden').toggleClass('o_hidden');
         if (this.given_context.report_type === 'bom_structure') {
-            this.$('.o_mrp_bom_cost').toggleClass('o_hidden');
-        }
-        if (this.given_context.report_type === 'bom_cost') {
-            this.$('.o_mrp_prod_cost').toggleClass('o_hidden');
+           this.$('.o_mrp_bom_cost, .o_mrp_prod_cost').toggleClass('o_hidden');
         }
     },
     _removeLines: function ($el) {

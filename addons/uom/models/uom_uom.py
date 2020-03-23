@@ -9,18 +9,23 @@ class UoMCategory(models.Model):
     _name = 'uom.category'
     _description = 'Product UoM Categories'
 
-    name = fields.Char('Name', required=True, translate=True)
+    name = fields.Char('Unit of Measure Category', required=True, translate=True)
     measure_type = fields.Selection([
-        ('unit', 'Units'),
-        ('weight', 'Weight'),
-        ('time', 'Time'),
-        ('length', 'Length'),
-        ('volume', 'Volume'),
+        ('unit', 'Default Units'),
+        ('weight', 'Default Weight'),
+        ('working_time', 'Default Working Time'),
+        ('length', 'Default Length'),
+        ('volume', 'Default Volume'),
     ], string="Type of Measure")
 
     _sql_constraints = [
         ('uom_category_unique_type', 'UNIQUE(measure_type)', 'You can have only one category per measurement type.'),
     ]
+
+    def unlink(self):
+        if self.filtered(lambda categ: categ.measure_type == 'working_time'):
+            raise UserError(_("You cannot delete this UoM Category as it is used by the system."))
+        return super(UoMCategory, self).unlink()
 
 
 class UoM(models.Model):
@@ -53,13 +58,14 @@ class UoM(models.Model):
 
     _sql_constraints = [
         ('factor_gt_zero', 'CHECK (factor!=0)', 'The conversion ratio for a unit of measure cannot be 0!'),
-        ('rounding_gt_zero', 'CHECK (rounding>0)', 'The rounding precision must be greater than 0!')
+        ('rounding_gt_zero', 'CHECK (rounding>0)', 'The rounding precision must be strictly positive.'),
+        ('factor_reference_is_one', "CHECK((uom_type = 'reference' AND factor = 1.0) OR (uom_type != 'reference'))", "The reference unit must have a conversion factor equal to 1.")
     ]
 
-    @api.one
     @api.depends('factor')
     def _compute_factor_inv(self):
-        self.factor_inv = self.factor and (1.0 / self.factor) or 0.0
+        for uom in self:
+            uom.factor_inv = uom.factor and (1.0 / uom.factor) or 0.0
 
     @api.onchange('uom_type')
     def _onchange_uom_type(self):
@@ -73,12 +79,12 @@ class UoM(models.Model):
             not possible to do it in SQL directly.
         """
         category_ids = self.mapped('category_id').ids
+        self.env['uom.uom'].flush(['category_id', 'uom_type', 'active'])
         self._cr.execute("""
             SELECT C.id AS category_id, count(U.id) AS uom_count
             FROM uom_category C
-            LEFT JOIN uom_uom U ON C.id = U.category_id AND uom_type = 'reference'
+            LEFT JOIN uom_uom U ON C.id = U.category_id AND uom_type = 'reference' AND U.active = 't'
             WHERE C.id IN %s
-                AND U.active = 't'
             GROUP BY C.id
         """, (tuple(category_ids),))
         for uom_data in self._cr.dictfetchall():
@@ -87,19 +93,24 @@ class UoM(models.Model):
             if uom_data['uom_count'] > 1:
                 raise ValidationError(_("UoM category %s should only have one reference unit of measure.") % (self.env['uom.category'].browse(uom_data['category_id']).name,))
 
-    @api.model
-    def create(self, values):
-        if 'factor_inv' in values:
-            factor_inv = values.pop('factor_inv')
-            values['factor'] = factor_inv and (1.0 / factor_inv) or 0.0
-        return super(UoM, self).create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for values in vals_list:
+            if 'factor_inv' in values:
+                factor_inv = values.pop('factor_inv')
+                values['factor'] = factor_inv and (1.0 / factor_inv) or 0.0
+        return super(UoM, self).create(vals_list)
 
-    @api.multi
     def write(self, values):
         if 'factor_inv' in values:
             factor_inv = values.pop('factor_inv')
             values['factor'] = factor_inv and (1.0 / factor_inv) or 0.0
         return super(UoM, self).write(values)
+
+    def unlink(self):
+        if self.filtered(lambda uom: uom.measure_type == 'working_time'):
+            raise UserError(_("You cannot delete this UoM as it is used by the system. You should rather archive it."))
+        return super(UoM, self).unlink()
 
     @api.model
     def name_create(self, name):
@@ -121,7 +132,6 @@ class UoM(models.Model):
         new_uom = self.create(values)
         return new_uom.name_get()[0]
 
-    @api.multi
     def _compute_quantity(self, qty, to_unit, round=True, rounding_method='UP', raise_if_failure=True):
         """ Convert the given quantity from the current UoM `self` into a given one
             :param qty: the quantity to convert
@@ -135,7 +145,7 @@ class UoM(models.Model):
         self.ensure_one()
         if self.category_id.id != to_unit.category_id.id:
             if raise_if_failure:
-                raise UserError(_('Conversion from Product UoM %s to Default UoM %s is not possible as they both belong to different Category!.') % (self.name, to_unit.name))
+                raise UserError(_('The unit of measure %s defined on the order line doesn\'t belong to the same category than the unit of measure %s defined on the product. Please correct the unit of measure defined on the order line or on the product, they should belong to the same category.') % (self.name, to_unit.name))
             else:
                 return qty
         amount = qty / self.factor
@@ -145,7 +155,6 @@ class UoM(models.Model):
                 amount = tools.float_round(amount, precision_rounding=to_unit.rounding, rounding_method=rounding_method)
         return amount
 
-    @api.multi
     def _compute_price(self, price, to_unit):
         self.ensure_one()
         if not self or not price or not to_unit or self == to_unit:

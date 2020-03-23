@@ -9,7 +9,6 @@ class RepairCancel(models.TransientModel):
     _name = 'repair.cancel'
     _description = 'Cancel Repair'
 
-    @api.multi
     def cancel_repair(self):
         if not self._context.get('active_id'):
             return {'type': 'ir.actions.act_window_close'}
@@ -33,7 +32,7 @@ class RepairCancel(models.TransientModel):
                 <form string="Cancel Repair">
                     <header>
                         <button name="cancel_repair" string="_Yes" type="object" class="btn-primary"/>
-                        <button string="Cancel" class="btn-default" special="cancel"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
                     </header>
                     <label string="Do you want to continue?"/>
                 </form>

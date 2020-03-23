@@ -28,16 +28,16 @@ var FieldPad = AbstractField.extend({
                 FieldPad.prototype.isPadConfigured = result;
             });
         }
-        return $.when();
+        return this._super.apply(this, arguments);
     },
     /**
      * @override
      */
     start: function () {
         if (!this.isPadConfigured) {
-            this.$(".oe_unconfigured").removeClass('hidden');
-            this.$(".oe_configured").addClass('hidden');
-            return;
+            this.$(".oe_unconfigured").removeClass('d-none');
+            this.$(".oe_configured").addClass('d-none');
+            return Promise.resolve();
         }
         if (this.mode === 'edit' && _.str.startsWith(this.value, 'http')) {
             this.url = this.value;
@@ -156,7 +156,7 @@ var FieldPad = AbstractField.extend({
                     .removeClass('oe_pad_loading')
                     .html('<div class="oe_pad_readonly"><div>');
                 self.$('.oe_pad_readonly').html(data);
-            }).fail(function () {
+            }).guardedCatch(function () {
                 self.$('.oe_pad_content').text(_t('Unable to load pad'));
             });
         } else {
@@ -178,6 +178,7 @@ var FieldPad = AbstractField.extend({
     _onToggleFullScreen: function () {
         this.$el.toggleClass('oe_pad_fullscreen mb0');
         this.$('.oe_pad_switch').toggleClass('fa-expand fa-compress');
+        this.$el.parents('.o_touch_device').toggleClass('o_scroll_hidden');
     },
 });
 

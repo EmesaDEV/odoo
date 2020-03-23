@@ -4,9 +4,8 @@
 {
     'name': 'Google Calendar',
     'version': '1.0',
-    'category': 'Extra Tools',
+    'category': 'Tools',
     'description': "",
-    'website': 'https://www.odoo.com/page/crm',
     'depends': ['google_account', 'calendar'],
     'qweb': ['static/src/xml/*.xml'],
     'data': [

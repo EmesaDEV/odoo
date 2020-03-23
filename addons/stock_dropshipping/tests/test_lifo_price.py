@@ -32,17 +32,20 @@ class TestLifoPrice(common.TransactionCase):
         product_form.type = 'product'
         product_form.categ_id = product_category_001
         product_form.lst_price = 100.0
-        product_form.standard_price = 70.0
         product_form.uom_id = self.env.ref('uom.product_uom_kgm')
         product_form.uom_po_id = self.env.ref('uom.product_uom_kgm')
         # these are not available (visible) in either product or variant
         # for views, apparently from the UI you can only set the product
         # category (or hand-assign the property_* version which seems...)
-        # product_form.valuation = 'real_time'
-        # product_form.cost_method = 'fifo'
-        product_form.property_stock_account_input = self.env.ref('stock_dropshipping.o_expense')
-        product_form.property_stock_account_output = self.env.ref('stock_dropshipping.o_income')
+        # product_form.categ_id.valuation = 'real_time'
+        # product_form.categ_id.property_cost_method = 'fifo'
+        product_form.categ_id.property_stock_account_input_categ_id = self.env.ref('stock_dropshipping.o_expense')
+        product_form.categ_id.property_stock_account_output_categ_id = self.env.ref('stock_dropshipping.o_income')
         product_lifo_icecream = product_form.save()
+
+        std_price_wiz = Form(self.env['stock.change.standard.price'].with_context(active_id=product_lifo_icecream.id, active_model='product.product'))
+        std_price_wiz.new_price = 70.0
+        std_price_wiz.save()
 
         # I create a draft Purchase Order for first in move for 10 pieces at 60 euro
         order_form = Form(self.env['purchase.order'])
@@ -82,10 +85,11 @@ class TestLifoPrice(common.TransactionCase):
         # Let us send some goods
         out_form = Form(self.env['stock.picking'])
         out_form.picking_type_id = self.env.ref('stock.picking_type_out')
-        with out_form.move_lines.new() as move:
+        out_form.immediate_transfer = True
+        with out_form.move_ids_without_package.new() as move:
             move.product_id = product_lifo_icecream
             move.quantity_done = 20.0
-            move.date_expected = fields.Date.context_today(self.env['stock.move.line'])
+            move.date_expected = fields.Datetime.now()
         outgoing_lifo_shipment = out_form.save()
 
         # I assign this outgoing shipment
@@ -95,4 +99,4 @@ class TestLifoPrice(common.TransactionCase):
         outgoing_lifo_shipment.button_validate()
 
         # Check if the move value correctly reflects the fifo costing method
-        self.assertEqual(outgoing_lifo_shipment.move_lines.value, -1400.0, 'Stock move value should have been 1400 euro')
+        self.assertEqual(outgoing_lifo_shipment.move_lines.stock_valuation_layer_ids.value, -1400.0, 'Stock move value should have been 1400 euro')

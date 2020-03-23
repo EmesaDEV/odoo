@@ -45,7 +45,7 @@ stay operational even after a complete disconnection.
 A super clean user interface
 ----------------------------
 
-### Simple and beautifull
+### Simple and beautiful
 
 Say goodbye to ugly, outdated POS software and enjoy the Odoo web interface
 designed for modern retailer.
@@ -63,7 +63,7 @@ about products with the blasting fast filter accross all your products.
 Integrated Inventory Management
 -------------------------------
 
-Consolidate all your sales channels in real time: stores, ecommerce, sales
+Consolidate all your Sales Teams in real time: stores, ecommerce, sales
 teams. Get real time control of the inventory and accurate forecasts to manage
 procurements.
 

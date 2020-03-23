@@ -1,13 +1,13 @@
 .ui-autocomplete .ui-menu-item {
-    &.ui-state-focus {
-        background-color: $o-brand-primary;
+    > a.ui-state-active {
+        background-color: $o-brand-odoo;
+        color: white;
     }
     &.o_m2o_dropdown_option > a {
-        color: $o-brand-primary;
-    }
-    &.ui-state-focus > a,
-    &.ui-state-focus.o_m2o_dropdown_option > a {
-        color: white;
+        color: $o-brand-odoo;
+        &.ui-state-active {
+            color: white;
+        }
     }
 }
 
@@ -41,7 +41,7 @@
         margin: 0;
         padding: 2px 8px;
         &:hover {
-            @include o-vertical-gradient(#f0f0fa, #eeeef6);
+            background-image: linear-gradient(to bottom, #f0f0fa, #eeeef6);
             box-shadow: none;
         }
         > a {

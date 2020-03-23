@@ -1,39 +1,32 @@
-.o_reconciliation {
-    h1 {
-        width: 48%;
-        padding: 0 0 0 15px;
-        margin: 0 0 25px 0;
-        float: left;
-        font-size: 2em;
-        height: 1.5em;
-        line-height: 1.5em;
-        &.statement_name {
-            @include o-text-overflow;
-            &.editable:hover {
-                outline: 1px dashed $o-brand-optional;
-                outline-offset: -1px;
-                cursor: pointer;
-            }
+.progress-reconciliation {
+    .progress-bar {
+        font-size: 1.08333333rem;
+        height: 14px;
+        background-color: $o-enterprise-color;
+        span {
+            display: contents;
         }
-        &.statement_name_edition input {
-            width: 85%;
+    }
+}
+
+.o_reconciliation {
+
+    .o_filter_input_wrapper {
+        position: relative;
+        width: 150px;
+        margin: 0.5rem !important;
+        .searchIcon {
+            position: absolute;
+            right: 10px;
+        }
+        .o_filter_input {
+            border: none;
+            border-bottom: 1px black solid;
         }
     }
 
-    .progress {
-        width: 49%;
-        margin: 10px 15px 0 0;
-        float: right;
-        position: relative;
-        display: inline-block;
-        .progress-bar {
-            background-color: #7c7bad;
-        }
-        .progress-text {
-            text-align: center;
-            position: absolute;
-            width: 100%;
-        }
+    .import_to_suspense {
+        margin: 0.5rem !important;
     }
 
     .notification_area {
@@ -54,14 +47,26 @@
             border-right: 1px solid #333;
             padding-right: 5px;
         }
-        .do_partial_reconcile_true {
-            color: #7c7bad;
-            padding-right: 5px;
+        .edit_amount {
+            margin-left: 20px;
+            color: #bbb;
         }
-        .do_partial_reconcile_false {
-            color: #f0eeee;
-            padding-right: 5px;
+        .cell:hover .edit_amount {
+            color: #00A09D;
         }
+        .strike_amount {
+            text-decoration: line-through;
+        }
+        tbody tr:hover .cell_account_code::before {
+            content: "\f068";
+            font-family: FontAwesome;
+            position: relative;
+            margin-left: -17px;
+            left: -4px;
+            line-height: 0;
+            padding: 3px 2px 5px 5px;
+        }
+
     }
 
     .o_multi_currency {
@@ -98,7 +103,7 @@
             width: 100%;
             vertical-align: top;
         }
-        tr {
+        tbody tr {
             cursor: pointer;
         }
         tr.already_reconciled {
@@ -106,6 +111,9 @@
         }
         tr.invalid {
             text-decoration: line-through;
+        }
+        td {
+            padding: 1px 2px;
         }
         thead td {
             border-top: $o-account-light-border;
@@ -121,9 +129,10 @@
 
         .cell_action {
             width: 15px;
-            color: $gray;
+            color: gray('700');
             background: #fff;
             border: 0;
+            text-align: center;
             .fa-add-remove:before {
                 content: "";
             }
@@ -137,6 +146,7 @@
         }
         .cell_account_code {
             width: 80px;
+            padding-left: 5px;
         }
         .cell_due_date {
             width: 100px;
@@ -155,11 +165,22 @@
             text-align: right;
             width: 15px;
             color: #ccc;
-            background: #fff;
-            border: 0;
+
+            &:empty {
+                padding: 0;
+                width: 0;
+            }
         }
 
+        table.accounting_view {
+            .cell_right, .cell_left, .cell_label, .cell_due_date, .cell_account_code,.cell_info_popover {
+                box-shadow: 0 1px 0 #EAEAEA;
+            }
+        }
         /* info popover */
+        .popover {
+            max-width: none;
+        }
 
         table.details {
             vertical-align: top;
@@ -181,41 +202,60 @@
         /* Icons */
 
         .toggle_match, .toggle_create {
-            @include o-transform(rotate(0deg));
-            @include o-transition(transform, 300ms);
+            transform: rotate(0deg);
+            transition: transform 300ms ease 0s;
         }
         .visible_toggle, &[data-mode="match"] .toggle_match, &[data-mode="create"] .toggle_create {
             visibility: visible !important;
-            @include o-transform(rotate(90deg));
+            transform: rotate(90deg);
+        }
+        .toggle_create {
+            font-size: 10px;
         }
 
         /* Match view & Create view */
+        > .o_notebook {
+            display: none;
 
-        > .match, > .create {
-            max-height: 0px;
-            overflow: hidden;
-            margin-top: 5px;
-            margin-bottom: 5px;
-            @include o-transition(max-height, 250ms);
+            > .o_notebook_headers {
+                margin-right: 0;
+                margin-left: 0;
+            }
         }
-        &[data-mode="match"] > .match {
-            max-height: none;
-            @include o-transition(max-height, 400ms);
+
+        > .o_notebook > .tab-content > div {
+            border: 1px solid #ddd;
+            border-top: 0;
         }
-        &[data-mode="create"] > .create {
-            max-height: 210px;
-            @include o-transition(max-height, 400ms);
+
+        > .o_notebook .match table tr:hover {
+            background-color: #eee;
         }
+
+        &:not([data-mode="inactive"]) > .o_notebook {
+            display: block;
+        }
+
+        &:not(:focus-within) .o_web_accesskey_overlay {
+            display: none;
+        }
+        &:focus caption .o_buttons button {
+            outline: none;
+            box-shadow: 4px 4px 4px 0px $o-enterprise-color;
+        }
+        &:focus{
+            outline: none;
+            box-shadow: 0 0 0 0;
+        }
+    }
+
+    .o_reconcile_models .btn-primary {
+        margin: 0 2px 3px 0;
     }
 
     /* Match view */
 
     .match {
-        > div {
-            padding: 1px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-        }
         .cell_action .fa-add-remove:before {
             content: "";
         }
@@ -223,7 +263,7 @@
             content: "\f067";
         }
         .match_controls {
-            padding: 0 0 5px ($o-account-action-col-width+$o-account-main-table-borders-padding);
+            padding: 5px 0 5px ($o-account-action-col-width+$o-account-main-table-borders-padding);
 
             .filter {
                 width: 240px;
@@ -253,31 +293,27 @@
 
     /* Create view */
     .create {
-        > div {
-            margin: 0 $o-account-action-col-width;
-            padding: 10px;
+        > div > div.quick_add > .o_reconcile_models {
+            max-width: 100%;
+            max-height: 70px;
+            flex-wrap: wrap;
             overflow: auto;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+
+            & > * {
+                flex-grow: 0;
+            }
         }
-        table {
+        .quick_add {
+            margin-bottom: 7px;
+            padding: 0 8px;
+        }
+        .o_group table.o_group_col_6 {
             width: 49%;
             margin: 0;
             vertical-align: top;
         }
-        td {
-            width: 99%;
-            padding-left: 8px;
-        }
-        tr .o_td_label {
-            vertical-align: top;
-            line-height: 26px;
-            font-weight: bold;
-            padding-right: 8px;
-            min-width: 100px;
-            border-right: 1px solid #ddd;
-            white-space: nowrap;
-            width: 1%;
+        .o_group table.o_group_col_6:first-child {
+            margin-left: 8px;
         }
         .btn {
             padding-top: 0;
@@ -286,9 +322,13 @@
         .add_line_container {
             text-align: center;
             clear: both;
-            color: $o-account-info-color;
+            color: $o-enterprise-primary-color;
             cursor: pointer;
         }
+    }
+
+    .o_notebook .tab-content > .tab-pane {
+        padding: 5px 0;
     }
 }
 
@@ -296,7 +336,7 @@
 .o_manual_statement {
     .accounting_view {
         td[colspan="3"] span:first-child {
-            width: 50%;
+            width: 100%;
             display: inline-block;
         }
         td[colspan="2"] {
@@ -306,6 +346,22 @@
         }
         .do_partial_reconcile_true {
             display: none;
+        }
+    }
+}
+
+// This is rtl language specific fix
+// It will flip the fa-fa play icon in left direction
+.o_rtl {
+    .o_reconciliation {
+        .o_reconciliation_line {
+            .toggle_match, .toggle_create {
+                transform: rotate(180deg);
+                transition: transform 300ms;
+            }
+            .visible_toggle, &[data-mode="match"] .toggle_match, &[data-mode="create"] .toggle_create {
+                transform: rotate(270deg);
+            }
         }
     }
 }

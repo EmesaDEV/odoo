@@ -1,7 +1,10 @@
-@media(max-width:767px){
-    .o_delivery_compute {
+@include media-breakpoint-down(sm) {
+    .o_wsale_delivery_badge_price {
         max-width: 130px;
         text-overflow: ellipsis;
         overflow: hidden;
     }
+}
+#delivery_method .o_delivery_carrier_select:hover {
+    cursor: pointer;
 }

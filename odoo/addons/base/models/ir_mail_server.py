@@ -22,6 +22,8 @@ from odoo.tools import ustr, pycompat
 _logger = logging.getLogger(__name__)
 _test_logger = logging.getLogger('odoo.tests')
 
+SMTP_TIMEOUT = 60
+
 
 class MailDeliveryException(except_orm):
     """Specific exception subclass for mail delivery errors"""
@@ -60,7 +62,7 @@ def encode_header(header_text):
         return ""
     header_text = ustr(header_text) # FIXME: require unicode higher up?
     if is_ascii(header_text):
-        return pycompat.to_native(header_text)
+        return pycompat.to_text(header_text)
     return Header(header_text, 'utf-8')
 
 def encode_header_param(param_text):
@@ -81,7 +83,7 @@ def encode_header_param(param_text):
         return ""
     param_text = ustr(param_text) # FIXME: require unicode higher up?
     if is_ascii(param_text):
-        return pycompat.to_native(param_text) # TODO: is that actually necessary?
+        return pycompat.to_text(param_text) # TODO: is that actually necessary?
     return Charset("utf-8").header_encode(param_text)
 
 address_pattern = re.compile(r'([^ ,<@]+@[^> ,]+)')
@@ -117,22 +119,32 @@ def encode_rfc2822_address_header(header_text):
         # Header as a string, using an unlimited line length.", the old one
         # was "A synonym for Header.encode()." so call encode() directly?
         name = Header(pycompat.to_text(name)).encode()
-        return formataddr((name, email))
+        # if the from does not follow the (name <addr>),* convention, we might
+        # try to encode meaningless strings as address, as getaddresses is naive
+        # note it would also fail on real addresses with non-ascii characters
+        try:
+            return formataddr((name, email))
+        except UnicodeEncodeError:
+            _logger.warning(_('Failed to encode the address %s\n'
+                              'from mail header:\n%s') % (addr, header_text))
+            return ""
 
-    addresses = getaddresses([pycompat.to_native(ustr(header_text))])
-    return COMMASPACE.join(encode_addr(a) for a in addresses)
+    addresses = getaddresses([pycompat.to_text(ustr(header_text))])
+    return COMMASPACE.join(a for a in (encode_addr(addr) for addr in addresses) if a)
 
 
 class IrMailServer(models.Model):
     """Represents an SMTP server, able to send outgoing emails, with SSL and TLS capabilities."""
     _name = "ir.mail_server"
+    _description = 'Mail Server'
+    _order = 'sequence'
 
     NO_VALID_RECIPIENT = ("At least one valid recipient address should be "
                           "specified for outgoing emails (To/Cc/Bcc)")
 
     name = fields.Char(string='Description', required=True, index=True)
     smtp_host = fields.Char(string='SMTP Server', required=True, help="Hostname or IP of SMTP server")
-    smtp_port = fields.Integer(string='SMTP Port', size=5, required=True, default=25, help="SMTP Port. Usually 465 for SSL, and 25 or 587 for other cases.")
+    smtp_port = fields.Integer(string='SMTP Port', required=True, default=25, help="SMTP Port. Usually 465 for SSL, and 25 or 587 for other cases.")
     smtp_user = fields.Char(string='Username', help="Optional username for SMTP authentication", groups='base.group_system')
     smtp_pass = fields.Char(string='Password', help="Optional password for SMTP authentication", groups='base.group_system')
     smtp_encryption = fields.Selection([('none', 'None'),
@@ -150,22 +162,57 @@ class IrMailServer(models.Model):
                                                                   "is used. Default priority is 10 (smaller number = higher priority)")
     active = fields.Boolean(default=True)
 
-    @api.multi
     def test_smtp_connection(self):
         for server in self:
             smtp = False
             try:
                 smtp = self.connect(mail_server_id=server.id)
+                # simulate sending an email from current user's address - without sending it!
+                email_from, email_to = self.env.user.email, 'noreply@odoo.com'
+                if not email_from:
+                    raise UserError(_('Please configure an email on the current user to simulate '
+                                      'sending an email message via this outgoing server'))
+                # Testing the MAIL FROM step should detect sender filter problems
+                (code, repl) = smtp.mail(email_from)
+                if code != 250:
+                    raise UserError(_('The server refused the sender address (%(email_from)s) '
+                                      'with error %(repl)s') % locals())
+                # Testing the RCPT TO step should detect most relaying problems
+                (code, repl) = smtp.rcpt(email_to)
+                if code not in (250, 251):
+                    raise UserError(_('The server refused the test recipient (%(email_to)s) '
+                                      'with error %(repl)s') % locals())
+                # Beginning the DATA step should detect some deferred rejections
+                # Can't use self.data() as it would actually send the mail!
+                smtp.putcmd("data")
+                (code, repl) = smtp.getreply()
+                if code != 354:
+                    raise UserError(_('The server refused the test connection '
+                                      'with error %(repl)s') % locals())
+            except UserError as e:
+                # let UserErrors (messages) bubble up
+                raise e
             except Exception as e:
                 raise UserError(_("Connection Test Failed! Here is what we got instead:\n %s") % ustr(e))
             finally:
                 try:
                     if smtp:
-                        smtp.quit()
+                        smtp.close()
                 except Exception:
                     # ignored, just a consequence of the previous exception
                     pass
-        raise UserError(_("Connection Test Succeeded! Everything seems properly set up!"))
+
+        title = _("Connection Test Succeeded!")
+        message = _("Everything seems properly set up!")
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': title,
+                'message': message,
+                'sticky': False,
+            }
+        }
 
     def connect(self, host=None, port=None, user=None, password=None, encryption=None,
                 smtp_debug=False, mail_server_id=None):
@@ -221,9 +268,9 @@ class IrMailServer(models.Model):
                       "You could use STARTTLS instead. "
                        "If SSL is needed, an upgrade to Python 2.6 on the server-side "
                        "should do the trick."))
-            connection = smtplib.SMTP_SSL(smtp_server, smtp_port)
+            connection = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=SMTP_TIMEOUT)
         else:
-            connection = smtplib.SMTP(smtp_server, smtp_port)
+            connection = smtplib.SMTP(smtp_server, smtp_port, timeout=SMTP_TIMEOUT)
         connection.set_debuglevel(smtp_debug)
         if smtp_encryption == 'starttls':
             # starttls() will perform ehlo() if needed first
@@ -239,9 +286,14 @@ class IrMailServer(models.Model):
             # The user/password must be converted to bytestrings in order to be usable for
             # certain hashing schemes, like HMAC.
             # See also bug #597143 and python issue #5285
-            smtp_user = pycompat.to_native(ustr(smtp_user))
-            smtp_password = pycompat.to_native(ustr(smtp_password))
+            smtp_user = pycompat.to_text(ustr(smtp_user))
+            smtp_password = pycompat.to_text(ustr(smtp_password))
             connection.login(smtp_user, smtp_password)
+
+        # Some methods of SMTP don't check whether EHLO/HELO was sent.
+        # Anyway, as it may have been sent by login(), all subsequent usages should consider this command as sent.
+        connection.ehlo_or_helo_if_needed()
+
         return connection
 
     def build_email(self, email_from, email_to, subject, body, email_cc=None, email_bcc=None, reply_to=False,
@@ -275,9 +327,10 @@ class IrMailServer(models.Model):
            :rtype: email.message.Message (usually MIMEMultipart)
            :return: the new RFC2822 email message
         """
-        email_from = email_from or tools.config.get('email_from')
+        email_from = email_from or self._get_default_from_address()
         assert email_from, "You must either provide a sender address explicitly or configure "\
-                           "a global sender address in the server configuration or with the "\
+                           "using the combintion of `mail.catchall.domain` and `mail.default.from` "\
+                           "ICPs, in the server configuration file or with the "\
                            "--email-from startup parameter."
 
         # Note: we must force all strings to to 8-bit utf-8 when crafting message,
@@ -315,7 +368,7 @@ class IrMailServer(models.Model):
         msg['Date'] = formatdate()
         # Custom headers may override normal headers or provide additional ones
         for key, value in headers.items():
-            msg[pycompat.to_native(ustr(key))] = encode_header(value)
+            msg[pycompat.to_text(ustr(key))] = encode_header(value)
 
         if subtype == 'html' and not body_alternative:
             # Always provide alternative text body ourselves if possible.
@@ -373,6 +426,26 @@ class IrMailServer(models.Model):
         domain = get_param('mail.catchall.domain')
         if postmaster and domain:
             return '%s@%s' % (postmaster, domain)
+
+    @api.model
+    def _get_default_from_address(self):
+        """Compute the default from address.
+
+        Used for the "header from" address when no other has been received.
+
+        :return str/None:
+            Combines config parameters ``mail.default.from`` and
+            ``mail.catchall.domain`` to generate a default sender address.
+
+            If some of those parameters is not defined, it will default to the
+            ``--email-from`` CLI/config parameter.
+        """
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        domain = get_param('mail.catchall.domain')
+        email_from = get_param("mail.default.from")
+        if email_from and domain:
+            return "%s@%s" % (email_from, domain)
+        return tools.config.get("email_from")
 
     @api.model
     def send_email(self, message, mail_server_id=None, smtp_server=None, smtp_port=None,
@@ -447,15 +520,15 @@ class IrMailServer(models.Model):
         try:
             message_id = message['Message-Id']
             smtp = smtp_session
-            try:
-                smtp = smtp or self.connect(
-                    smtp_server, smtp_port, smtp_user, smtp_password,
-                    smtp_encryption, smtp_debug, mail_server_id=mail_server_id)
-                smtp.sendmail(smtp_from, smtp_to_list, message.as_string())
-            finally:
-                # do not quit() a pre-established smtp_session
-                if smtp is not None and not smtp_session:
-                    smtp.quit()
+            smtp = smtp or self.connect(
+                smtp_server, smtp_port, smtp_user, smtp_password,
+                smtp_encryption, smtp_debug, mail_server_id=mail_server_id)
+            smtp.sendmail(smtp_from, smtp_to_list, message.as_string())
+            # do not quit() a pre-established smtp_session
+            if not smtp_session:
+                smtp.quit()
+        except smtplib.SMTPServerDisconnected:
+            raise
         except Exception as e:
             params = (ustr(smtp_server), e.__class__.__name__, ustr(e))
             msg = _("Mail delivery failed via SMTP server '%s'.\n%s: %s") % params

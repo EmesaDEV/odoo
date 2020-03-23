@@ -2,7 +2,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import models, fields, api, _
-from odoo.addons import decimal_precision as dp
 from odoo.tools.safe_eval import safe_eval
 from odoo.exceptions import UserError, ValidationError
 
@@ -31,8 +30,8 @@ class PriceRule(models.Model):
     variable = fields.Selection([('weight', 'Weight'), ('volume', 'Volume'), ('wv', 'Weight * Volume'), ('price', 'Price'), ('quantity', 'Quantity')], required=True, default='weight')
     operator = fields.Selection([('==', '='), ('<=', '<='), ('<', '<'), ('>=', '>='), ('>', '>')], required=True, default='<=')
     max_value = fields.Float('Maximum Value', required=True)
-    list_base_price = fields.Float(string='Sale Base Price', digits=dp.get_precision('Product Price'), required=True, default=0.0)
-    list_price = fields.Float('Sale Price', digits=dp.get_precision('Product Price'), required=True, default=0.0)
+    list_base_price = fields.Float(string='Sale Base Price', digits='Product Price', required=True, default=0.0)
+    list_price = fields.Float('Sale Price', digits='Product Price', required=True, default=0.0)
     variable_factor = fields.Selection([('weight', 'Weight'), ('volume', 'Volume'), ('wv', 'Weight * Volume'), ('price', 'Price'), ('quantity', 'Quantity')], 'Variable Factor', required=True, default='weight')
 
 
@@ -47,7 +46,7 @@ class ProviderGrid(models.Model):
         if not carrier:
             return {'success': False,
                     'price': 0.0,
-                    'error_message': _('Error: no matching grid.'),
+                    'error_message': _('Error: this delivery method is not available for this address.'),
                     'warning_message': False}
 
         try:
@@ -68,6 +67,8 @@ class ProviderGrid(models.Model):
 
     def _get_price_available(self, order):
         self.ensure_one()
+        self = self.sudo()
+        order = order.sudo()
         total = weight = volume = quantity = 0
         total_delivery = 0.0
         for line in order.order_line:
@@ -108,7 +109,7 @@ class ProviderGrid(models.Model):
         for p in pickings:
             carrier = self._match_address(p.partner_id)
             if not carrier:
-                raise ValidationError(_('Error: no matching grid.'))
+                raise ValidationError(_('There is no matching delivery rule.'))
             res = res + [{'exact_price': p.carrier_id._get_price_available(p.sale_id) if p.sale_id else 0.0,  # TODO cleanme
                           'tracking_number': False}]
         return res

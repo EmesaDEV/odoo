@@ -16,12 +16,12 @@ import threading
 import odoo
 from .. import SUPERUSER_ID
 from odoo.sql_db import TestCursor
-from odoo.tools import (assertion_report, config, existing_tables,
-                        lazy_classproperty, lazy_property, table_exists,
-                        topological_sort, OrderedSet)
+from odoo.tools import (assertion_report, config, existing_tables, ignore,
+                        lazy_classproperty, lazy_property, OrderedSet)
 from odoo.tools.lru import LRU
 
 _logger = logging.getLogger(__name__)
+_schema = logging.getLogger('odoo.schema')
 
 
 class Registry(Mapping):
@@ -105,15 +105,17 @@ class Registry(Mapping):
 
     def init(self, db_name):
         self.models = {}    # model name/model instance mapping
-        self._sql_error = {}
+        self._sql_constraints = set()
         self._init = True
         self._assertion_report = assertion_report.assertion_report()
         self._fields_by_model = None
         self._post_init_queue = deque()
+        self._constraint_queue = deque()
 
         # modules fully loaded (maintained during init phase by `loading` module)
         self._init_modules = set()
         self.updated_modules = []       # installed/updated modules
+        self.loaded_xmlids = set()
 
         self.db_name = db_name
         self._db = odoo.sql_db.db_connect(db_name)
@@ -149,9 +151,7 @@ class Registry(Mapping):
         """ Delete the registry linked to a given database. """
         with cls._lock:
             if db_name in cls.registries:
-                registry = cls.registries.pop(db_name)
-                registry.clear_caches()
-                registry.registry_invalidated = True
+                cls.registries.pop(db_name)
 
     @classmethod
     def delete_all(cls):
@@ -183,25 +183,6 @@ class Registry(Mapping):
     def __setitem__(self, model_name, model):
         """ Add or replace a model in the registry."""
         self.models[model_name] = model
-
-    @lazy_property
-    def field_sequence(self):
-        """ Return a function mapping a field to an integer. The value of a
-            field is guaranteed to be strictly greater than the value of the
-            field's dependencies.
-        """
-        # map fields on their dependents
-        dependents = {
-            field: set(dep for dep, _ in model._field_triggers[field] if dep != field)
-            for model in self.values()
-            for field in model._fields.values()
-        }
-        # sort them topologically, and associate a sequence number to each field
-        mapping = {
-            field: num
-            for num, field in enumerate(reversed(topological_sort(dependents)))
-        }
-        return mapping.get
 
     def descendants(self, model_names, *kinds):
         """ Return the models corresponding to ``model_names`` and all those
@@ -250,6 +231,12 @@ class Registry(Mapping):
         lazy_property.reset_all(self)
         env = odoo.api.Environment(cr, SUPERUSER_ID, {})
 
+        if env.all.tocompute:
+            _logger.error(
+                "Remaining fields to compute before setting up registry: %s",
+                env.all.tocompute, stack_info=True,
+            )
+
         # add manual models
         if self._init_modules:
             env['ir.model']._add_manual_models()
@@ -260,12 +247,52 @@ class Registry(Mapping):
             model._prepare_setup()
 
         # do the actual setup from a clean state
-        self._m2m = {}
+        self._m2m = defaultdict(list)
         for model in models:
             model._setup_base()
 
         for model in models:
             model._setup_fields()
+
+        # determine field dependencies
+        dependencies = {}
+        for model in models:
+            if model._abstract:
+                continue
+            for field in model._fields.values():
+                # dependencies of custom fields may not exist; ignore that case
+                exceptions = (Exception,) if field.base_field.manual else ()
+                with ignore(*exceptions):
+                    dependencies[field] = set(field.resolve_depends(model))
+
+        # determine transitive dependencies
+        def transitive_dependencies(field, seen=[]):
+            if field in seen:
+                return
+            for seq1 in dependencies[field]:
+                yield seq1
+                for seq2 in transitive_dependencies(seq1[-1], seen + [field]):
+                    yield concat(seq1[:-1], seq2)
+
+        def concat(seq1, seq2):
+            if seq1 and seq2:
+                f1, f2 = seq1[-1], seq2[0]
+                if f1.type == 'one2many' and f2.type == 'many2one' and \
+                        f1.model_name == f2.comodel_name and f1.inverse_name == f2.name:
+                    return concat(seq1[:-1], seq2[1:])
+            return seq1 + seq2
+
+        # determine triggers based on transitive dependencies
+        triggers = {}
+        for field in dependencies:
+            for path in transitive_dependencies(field):
+                if path:
+                    tree = triggers
+                    for label in reversed(path):
+                        tree = tree.setdefault(label, {})
+                    tree.setdefault(None, set()).add(field)
+
+        self.field_triggers = triggers
 
         for model in models:
             model._setup_complete()
@@ -276,7 +303,27 @@ class Registry(Mapping):
         """ Register a function to call at the end of :meth:`~.init_models`. """
         self._post_init_queue.append(partial(func, *args, **kwargs))
 
-    def init_models(self, cr, model_names, context):
+    def post_constraint(self, func, *args, **kwargs):
+        """ Call the given function, and delay it if it fails during an upgrade. """
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            if self._is_install:
+                _schema.error(*e.args)
+            else:
+                _schema.info(*e.args)
+                self._constraint_queue.append(partial(func, *args, **kwargs))
+
+    def finalize_constraints(self):
+        """ Call the delayed functions from above. """
+        while self._constraint_queue:
+            func = self._constraint_queue.popleft()
+            try:
+                func()
+            except Exception as e:
+                _schema.error(*e.args)
+
+    def init_models(self, cr, model_names, context, install=True):
         """ Initialize a list of models (given by their name). Call methods
             ``_auto_init`` and ``init`` on each model to create or update the
             database tables supporting the models.
@@ -287,9 +334,15 @@ class Registry(Mapping):
         """
         if 'module' in context:
             _logger.info('module %s: creating or updating database tables', context['module'])
+        elif context.get('models_to_check', False):
+            _logger.info("verifying fields for every extended model")
 
         env = odoo.api.Environment(cr, SUPERUSER_ID, context)
         models = [env[model_name] for model_name in model_names]
+
+        # make sure the queue does not contain some leftover from a former call
+        self._post_init_queue.clear()
+        self._is_install = install
 
         for model in models:
             model._auto_init()
@@ -299,8 +352,7 @@ class Registry(Mapping):
             func = self._post_init_queue.popleft()
             func()
 
-        if models:
-            models[0].recompute()
+        env['base'].flush()
 
         # make sure all tables are present
         self.check_tables_exist(cr)
@@ -315,13 +367,12 @@ class Registry(Mapping):
 
         if missing_tables:
             missing = {table2model[table] for table in missing_tables}
-            _logger.warning("Models have no table: %s.", ", ".join(missing))
-            # recreate missing tables following model dependencies
-            deps = {name: model._depends for name, model in env.items()}
-            for name in topological_sort(deps):
-                if name in missing:
-                    _logger.info("Recreate table of model %s.", name)
-                    env[name].init()
+            _logger.info("Models have no table: %s.", ", ".join(missing))
+            # recreate missing tables
+            for name in missing:
+                _logger.info("Recreate table of model %s.", name)
+                env[name].init()
+            env['base'].flush()
             # check again, and log errors if tables are still missing
             missing_tables = set(table2model).difference(existing_tables(cr, table2model))
             for table in missing_tables:
@@ -390,8 +441,9 @@ class Registry(Mapping):
             # Check if the model caches must be invalidated.
             elif self.cache_sequence != c:
                 _logger.info("Invalidating all model caches after database signaling.")
-                self.clear_caches()
-                self.cache_invalidated = False
+                # Bypass self.clear_caches() to avoid invalidation loops in multi-threaded
+                # configs due to the `cache_invalidated` flag being set, causing more signaling.
+                self.cache.clear()
             self.registry_sequence = r
             self.cache_sequence = c
 

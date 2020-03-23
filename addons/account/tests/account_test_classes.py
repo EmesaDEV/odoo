@@ -4,7 +4,6 @@ import logging
 _logger = logging.getLogger(__name__)
 
 from odoo.tests.common import HttpCase, tagged
-from odoo.exceptions import ValidationError
 
 
 class AccountingTestCase(HttpCase):
@@ -21,17 +20,6 @@ class AccountingTestCase(HttpCase):
             _logger.warn('Test skipped because there is no chart of account defined ...')
             self.skipTest("No Chart of account found")
 
-    def check_complete_move(self, move, theorical_lines):
-        for aml in move.line_ids:
-            line = (aml.name, round(aml.debit, 2), round(aml.credit, 2))
-            if line in theorical_lines:
-                theorical_lines.remove(line)
-            else:
-                raise ValidationError('Unexpected journal item. (label: %s, debit: %s, credit: %s)' % (aml.name, round(aml.debit, 2), round(aml.credit, 2)))
-        if theorical_lines:
-            raise ValidationError('Remaining theorical line (not found). %s)' % ([(aml[0], aml[1], aml[2]) for aml in theorical_lines]))
-        return True
-
     def ensure_account_property(self, property_name):
         '''Ensure the ir.property targeting an account.account passed as parameter exists.
         In case it's not: create it with a random account. This is useful when testing with
@@ -39,7 +27,7 @@ class AccountingTestCase(HttpCase):
 
         :param property_name: The name of the property.
         '''
-        company_id = self.env.user.company_id
+        company_id = self.env.company
         field_id = self.env['ir.model.fields'].search(
             [('model', '=', 'product.template'), ('name', '=', property_name)], limit=1)
         property_id = self.env['ir.property'].search([

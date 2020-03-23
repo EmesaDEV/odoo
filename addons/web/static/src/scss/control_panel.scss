@@ -1,44 +1,41 @@
 
 .o_control_panel {
-    @include o-flex-display;
-    @include o-flex-flow(row, wrap);
     border-bottom: 1px solid darken($o-control-panel-background-color, 20%);
     @include o-webclient-padding($top: 10px, $bottom: 10px);
     background-color: $o-control-panel-background-color;
 
-    > .breadcrumb {
-        width: 50%;
-        margin: 0px;
+    > div {
+        display: flex;
+        min-height: 30px;
+    }
+
+    @include media-breakpoint-up(md) {
+        .breadcrumb, .o_cp_left, .o_cp_searchview, .o_cp_right {
+            width: 50%;
+        }
+    }
+
+    .breadcrumb {
         font-size: 18px;
 
         > li {
             @include o-text-overflow($max-width: 90%);
-
-            > a {
-                cursor: pointer;
-            }
         }
     }
 
-    &.o_breadcrumb_full > .breadcrumb {
-        width: 100%;
-    }
-
-    > .o_cp_searchview {
-        width: 50%;
+    .o_cp_searchview {
         min-height: $o-cp-breadcrumb-height;
     }
 
     .btn.o_enable_searchview {
-        width: 10%;
         margin-left: 2%;
         padding: 0px;
+        background: white;
     }
 
-    > .o_cp_left {
-        @include o-flex-display;
-        @include o-justify-content(space-between);
-        width: 50%;
+    .o_cp_left {
+        display: flex;
+        justify-content: space-between;
         margin-top: 5px;
 
         > .o_cp_sidebar {
@@ -55,10 +52,10 @@
                 }
                 .o_form_binary_form span {
                     padding: 3px 25px;
-                    color: $btn-default-color;
+                    color: $o-brand-primary;
                 }
                 .o_form_binary_form:hover {
-                    background-color: $table-bg-hover;
+                    background-color: $table-hover-bg;
                 }
             }
             .o_sidebar_delete_attachment {
@@ -70,46 +67,52 @@
         }
     }
 
-    > .o_cp_right {
-        @include o-flex-display;
-        width: 50%;
+    .o_cp_right {
+        display: flex;
         margin-top: 5px;
 
         > .o_cp_pager {
             margin: auto 0 auto auto;
             padding-left: 5px;
             text-align: center;
-            @include user-select(none);
+            user-select: none;
 
             > div {
-                @include o-flex-display;
-                @include o-align-items(center);
+                display: flex;
+                align-items: center;
             }
 
             .o_pager_counter {
                 margin-right: 5px;
+                min-width: $o-statbutton-height;
             }
         }
 
         > .o_cp_switch_buttons > .btn:first-child {
             margin-left: $o-horizontal-padding;
+            @include media-breakpoint-down(sm) {
+                margin-left: 0;
+            }
         }
     }
 }
 
 .o_x2m_control_panel {
-    @include o-flex-display;
-    @include o-flex-flow(row, wrap);
+    display: flex;
+    flex-flow: row wrap;
 
     .o_cp_buttons {
-        @include o-flex-display;
+        display: flex;
         margin-right: auto;
         > div {
             margin-top: 5px;
         }
+        .o-kanban-button-new {
+            margin-left: $o-kanban-record-margin;
+        }
     }
     .o_cp_pager {
-        @include o-flex-display;
+        display: flex;
         margin-left: auto;
     }
 }

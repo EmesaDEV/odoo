@@ -1,6 +1,6 @@
 input#cc_number {
     background-repeat: no-repeat;
-    background-position: 14px 14px;
+    background-position: center right calc(2.7em);
 }
 
 div.card_placeholder {
@@ -55,7 +55,7 @@ div.visa {
     background-repeat: no-repeat;
 }
 
-ul.payment_method_list img.img-rounded {
+ul.payment_method_list img.rounded {
     max-width: 100px;
     max-height: 40px;
 }

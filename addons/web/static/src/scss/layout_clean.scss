@@ -1,48 +1,44 @@
 .o_clean_footer, .o_clean_header, .o_report_layout_clean {
-    font-family: 'Lato';
     color: #000;
 }
-.o_clean_header {
-    img {
-        max-height: 90px;
-        max-width: 300px;
-    }
+.o_clean_header img {
+    max-height: 90px;
+    max-width: 300px;
 }
 .o_clean_footer {
     margin: 0 3px;
-    border-top: 3px solid $o-brand-primary;
+    margin-top: 200px;
+    border-top: 3px solid $o-company-secondary-color;
     h4 {
-        color: $o-brand-primary;
+        color: $o-company-secondary-color;
         font-weight: bolder;
     }
     .pagenumber {
-        width: 35px;
-        height: 35px;
-        border: 3px solid $o-brand-primary;
-        background-color: $o-brand-optional;
+        border: 3px solid $o-company-primary-color;
+        background-color: $o-company-secondary-color;
         color: white;
-        padding-top: 6px;
+        padding: 4px 8px;
         text-align: center;
     }
 }
 .o_report_layout_clean {
     h1, h2, h3 {
-        color: $o-brand-optional;
+        color: $o-company-primary-color;
         font-weight: bolder;
     }
     strong {
-        color: $o-brand-primary;
+        color: $o-company-secondary-color;
     }
     table {
+        &.o_main_table {
+            margin-bottom: 0;
+        }
+
         thead {
-            color: $o-brand-primary;
+            color: $o-company-secondary-color;
             tr th {
-                text-align: left !important;
-                border-top: 3px solid $o-brand-primary !important;
+                border-top: 3px solid $o-company-secondary-color !important;
                 text-transform: uppercase;
-            }
-            tr th:last-child {
-                text-align: right !important;
             }
             tr th:first-child {
                 width: 48%;
@@ -54,31 +50,38 @@
                 border-top: none;
             }
             tr:last-child td {
-                border-bottom: 3px solid $o-brand-primary;
+                border-bottom: 3px solid $o-company-secondary-color;
             }
             tr {
                 td {
                     padding: 15px 5px;
-                    text-align: left !important;
                 }
                 td:last-child {
-                    text-align: right !important;
                 }
             }
         }
     }
+    #total {
+        strong {
+            color: $o-company-secondary-color;
+        }
+    }
     /*Total table*/
-    .row > .col-xs-4 {
-            width: 43%;
-            position: relative;
-            top: -20px;
-            > table {
-            tr:last-child td {
-                border-top: 1px solid $gray-lighter !important;
-            }
-            tr:first-child td {
-                /*we could get rid of this rule if .border-black td would be terminated in report.scss*/
+    /* compat 12.0 */
+    .row:not(#total) > div:has(table) {
+        top: -16px;
+    }
+    /* row col rule compat 12.0 */
+    .row > div > table,
+    div#total table {
+        tr {
+            &:first-child td,
+            &.o_subtotal {
                 border-top: none !important;
+            }
+            &:last-child td,
+            &.o_total {
+                border-top: 1px solid gray('200') !important;
             }
         }
     }

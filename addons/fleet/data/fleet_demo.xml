@@ -5,24 +5,29 @@
         <field name="groups_id" eval="[(4, ref('fleet.fleet_group_manager'))]" />
       </record>
 
-      <record id="vehicle_state_inshop" model="fleet.vehicle.state">
-        <field name="name">In shop</field>
-        <field name="sequence">1</field>
+      <record id="fleet_vehicle_state_ordered" model="fleet.vehicle.state">
+          <field name="name">Ordered</field>
+          <field name="sequence">6</field>
       </record>
 
-      <record id="vehicle_state_active" model="fleet.vehicle.state">
-        <field name="name">Active</field>
-        <field name="sequence">2</field>
+      <record id="fleet_vehicle_state_registered" model="fleet.vehicle.state">
+          <field name="name">Registered</field>
+          <field name="sequence">7</field>
       </record>
 
-      <record id="vehicle_state_inactive" model="fleet.vehicle.state">
-        <field name="name">Inactive</field>
-        <field name="sequence">3</field>
+      <record id="fleet_vehicle_state_downgraded" model="fleet.vehicle.state">
+          <field name="name">Downgraded</field>
+          <field name="sequence">8</field>
       </record>
 
-      <record id="vehicle_state_sold" model="fleet.vehicle.state">
-        <field name="name">Sold</field>
-        <field name="sequence">4</field>
+      <record id="fleet_vehicle_state_reserve" model="fleet.vehicle.state">
+          <field name="name">Reserve</field>
+          <field name="sequence">9</field>
+      </record>
+
+      <record id="fleet_vehicle_state_waiting_list" model="fleet.vehicle.state">
+          <field name="name">Waiting List</field>
+          <field name="sequence">10</field>
       </record>
 
       <record id="type_service_service_1" model="fleet.service.type">
@@ -394,12 +399,12 @@
        <record id="type_contract_repairing" model="fleet.service.type">
           <field name="name">Repairing</field>
           <field name="category">service</field>
-      </record>  
+      </record>
 
       <record id="type_service_refueling" model="fleet.service.type">
           <field name="name">Refueling</field>
           <field name="category">service</field>
-      </record> 
+      </record>
 
       <record id="vehicle_tag_junior" model="fleet.vehicle.tag" >
         <field name="name">Junior</field>
@@ -441,229 +446,24 @@
         <field name="color" eval="8"/>
       </record>
 
-      <record id="model_corsa" model="fleet.vehicle.model">
-          <field name="name">Corsa</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
       <record id="model_astra" model="fleet.vehicle.model">
-          <field name="name">Astra</field>
-          <field name="brand_id" ref="brand_opel" />
+          <field name="manager_id" ref="base.user_admin"/>
       </record>
 
-      <record id="model_agila" model="fleet.vehicle.model">
-          <field name="name">Agila</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_combotour" model="fleet.vehicle.model">
-          <field name="name">Combo Tour</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_meriva" model="fleet.vehicle.model">
-          <field name="name">Meriva</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_astragtc" model="fleet.vehicle.model">
-          <field name="name">AstraGTC</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_zafira" model="fleet.vehicle.model">
-          <field name="name">Zafira</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_zafiratourer" model="fleet.vehicle.model">
-          <field name="name">Zafira Tourer</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_insignia" model="fleet.vehicle.model">
-          <field name="name">Insignia</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_mokka" model="fleet.vehicle.model">
-          <field name="name">Mokka</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_antara" model="fleet.vehicle.model">
-          <field name="name">Antara</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_ampera" model="fleet.vehicle.model">
-          <field name="name">Ampera</field>
-          <field name="brand_id" ref="brand_opel" />
-      </record>
-
-      <record id="model_a1" model="fleet.vehicle.model">
-          <field name="name">A1</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a3" model="fleet.vehicle.model">
-          <field name="name">A3</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a4" model="fleet.vehicle.model">
-          <field name="name">A4</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a5" model="fleet.vehicle.model">
-          <field name="name">A5</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a6" model="fleet.vehicle.model">
-          <field name="name">A6</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a7" model="fleet.vehicle.model">
-          <field name="name">A7</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_a8" model="fleet.vehicle.model">
-          <field name="name">A8</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_q3" model="fleet.vehicle.model">
-          <field name="name">Q3</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_q5" model="fleet.vehicle.model">
-          <field name="name">Q5</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_q7" model="fleet.vehicle.model">
-          <field name="name">Q7</field>
-          <field name="brand_id" ref="brand_audi" />
-      </record>
-
-      <record id="model_tt" model="fleet.vehicle.model">
-          <field name="name">TT</field>
-          <field name="brand_id" ref="brand_audi" />
+      <record id="model_corsa" model="fleet.vehicle.model">
+          <field name="manager_id" ref="base.user_admin"/>
       </record>
 
       <record id="model_serie1" model="fleet.vehicle.model">
-          <field name="name">Serie 1</field>
-          <field name="brand_id" ref="brand_bmw" />
+          <field name="manager_id" ref="base.user_admin"/>
       </record>
 
-      <record id="model_serie3" model="fleet.vehicle.model">
-          <field name="name">Serie 3</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_serie5" model="fleet.vehicle.model">
-          <field name="name">Serie 5</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_serie6" model="fleet.vehicle.model">
-          <field name="name">Serie 6</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_serie7" model="fleet.vehicle.model">
-          <field name="name">Serie 7</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_seriex" model="fleet.vehicle.model">
-          <field name="name">Serie X</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_seriez4" model="fleet.vehicle.model">
-          <field name="name">Serie Z4</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_seriem" model="fleet.vehicle.model">
-          <field name="name">Serie M</field>
-          <field name="brand_id" ref="brand_bmw" />
-      </record>
-
-      <record id="model_seriehybrid" model="fleet.vehicle.model">
-          <field name="name">Serie Hybrid</field>
-          <field name="brand_id" ref="brand_bmw" />
+      <record id="model_a1" model="fleet.vehicle.model">
+          <field name="manager_id" ref="base.user_admin"/>
       </record>
 
       <record id="model_classa" model="fleet.vehicle.model">
-          <field name="name">Class A</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classb" model="fleet.vehicle.model">
-          <field name="name">Class B</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classc" model="fleet.vehicle.model">
-          <field name="name">Class C</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classcl" model="fleet.vehicle.model">
-          <field name="name">Class CL</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classcls" model="fleet.vehicle.model">
-          <field name="name">Class CLS</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classe" model="fleet.vehicle.model">
-          <field name="name">Class E</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classm" model="fleet.vehicle.model">
-          <field name="name">Class M</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classgl" model="fleet.vehicle.model">
-          <field name="name">Class GL</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classglk" model="fleet.vehicle.model">
-          <field name="name">Class GLK</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classr" model="fleet.vehicle.model">
-          <field name="name">Class R</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classs" model="fleet.vehicle.model">
-          <field name="name">Class S</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classslk" model="fleet.vehicle.model">
-          <field name="name">Class SLK</field>
-          <field name="brand_id" ref="brand_mercedes" />
-      </record>
-
-      <record id="model_classsls" model="fleet.vehicle.model">
-          <field name="name">SLS</field>
-          <field name="brand_id" ref="brand_mercedes" />
+          <field name="manager_id" ref="base.user_admin"/>
       </record>
 
       <record id="vehicle_1" model="fleet.vehicle">
@@ -675,7 +475,7 @@
           <field name="doors">5</field>
           <field name="driver_id" ref="base.user_demo_res_partner" />
           <field name="acquisition_date" eval="time.strftime('%Y-%m-%d 2:00:00')" />
-          <field name="state_id" ref="vehicle_state_active"/>
+          <field name="state_id" ref="fleet_vehicle_state_registered"/>
           <field name="odometer_unit">kilometers</field>
           <field name="car_value">20000</field>
           <field eval="[(6,0,[ref('vehicle_tag_leasing'),ref('fleet.vehicle_tag_break'),ref('fleet.vehicle_tag_senior')])]" name="tag_ids"/>
@@ -690,7 +490,7 @@
           <field name="doors">5</field>
           <field name="driver_id" ref="base.res_partner_address_25" />
           <field name="acquisition_date" eval="time.strftime('%Y-%m-%d 2:00:00')" />
-          <field name="state_id" ref="vehicle_state_inactive"/>
+          <field name="state_id" ref="fleet_vehicle_state_downgraded"/>
           <field name="odometer_unit">kilometers</field>
           <field name="car_value">16000</field>
           <field eval="[(6,0,[ref('vehicle_tag_leasing'),ref('fleet.vehicle_tag_compact'),ref('fleet.vehicle_tag_junior')])]" name="tag_ids"/>
@@ -705,7 +505,7 @@
           <field name="doors">3</field>
           <field name="driver_id" ref="base.res_partner_address_17" />
           <field name="acquisition_date" eval="time.strftime('%Y-%m-%d 2:00:00')" />
-          <field name="state_id" ref="vehicle_state_active"/>
+          <field name="state_id" ref="fleet_vehicle_state_registered"/>
           <field name="odometer_unit">kilometers</field>
           <field name="car_value">20000</field>
           <field eval="[(6,0,[ref('vehicle_tag_leasing'),ref('fleet.vehicle_tag_compact'),ref('fleet.vehicle_tag_senior')])]" name="tag_ids"/>
@@ -720,7 +520,7 @@
           <field name="doors">3</field>
           <field name="driver_id" ref="base.res_partner_address_16" />
           <field name="acquisition_date" eval="time.strftime('%Y-%m-%d 2:00:00')" />
-          <field name="state_id" ref="vehicle_state_active"/>
+          <field name="state_id" ref="fleet_vehicle_state_registered"/>
           <field name="odometer_unit">kilometers</field>
           <field name="car_value">20000</field>
           <field eval="[(6,0,[ref('vehicle_tag_leasing'),ref('fleet.vehicle_tag_compact'),ref('fleet.vehicle_tag_senior')])]" name="tag_ids"/>
@@ -735,7 +535,7 @@
           <field name="doors">5</field>
           <field name="driver_id" ref="base.res_partner_address_15" />
           <field name="acquisition_date" eval="time.strftime('%Y-%m-%d 2:00:00')" />
-          <field name="state_id" ref="vehicle_state_active"/>
+          <field name="state_id" ref="fleet_vehicle_state_registered"/>
           <field name="odometer_unit">kilometers</field>
           <field name="car_value">18000</field>
           <field eval="[(6,0,[ref('vehicle_tag_leasing'),ref('fleet.vehicle_tag_compact'),ref('fleet.vehicle_tag_senior')])]" name="tag_ids"/>
@@ -769,7 +569,7 @@
       <record id="log_fuel_2" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-02-11</field>
           <field name="liter">50</field>
           <field name="price_per_liter">1.3</field>
@@ -788,7 +588,7 @@
        <record id="log_fuel_3" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-03-23</field>
           <field name="liter">45</field>
           <field name="price_per_liter">1.32</field>
@@ -807,7 +607,7 @@
       <record id="log_fuel_4" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-04-5</field>
           <field name="liter">55</field>
           <field name="price_per_liter">1.32</field>
@@ -826,7 +626,7 @@
       <record id="log_fuel_5" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-04-25</field>
           <field name="liter">40</field>
           <field name="price_per_liter">1.35</field>
@@ -845,7 +645,7 @@
       <record id="log_fuel_6" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-05-15</field>
           <field name="liter">55.8</field>
           <field name="price_per_liter">1.35</field>
@@ -864,7 +664,7 @@
       <record id="log_fuel_7" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-06-11</field>
           <field name="liter">55.8</field>
           <field name="price_per_liter">1.35</field>
@@ -883,7 +683,7 @@
       <record id="log_fuel_8" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-07-02</field>
           <field name="liter">47.8</field>
           <field name="price_per_liter">1.35</field>
@@ -902,7 +702,7 @@
       <record id="log_fuel_9" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-07-28</field>
           <field name="liter">25</field>
           <field name="price_per_liter">1.35</field>
@@ -921,7 +721,7 @@
        <record id="log_fuel_10" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-08-17</field>
           <field name="liter">51.2</field>
           <field name="price_per_liter">1.35</field>
@@ -940,7 +740,7 @@
       <record id="log_fuel_11" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-09-11</field>
           <field name="liter">45.36</field>
           <field name="price_per_liter">1.35</field>
@@ -959,7 +759,7 @@
       <record id="log_fuel_12" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-10-06</field>
           <field name="liter">53.4</field>
           <field name="price_per_liter">1.37</field>
@@ -978,7 +778,7 @@
       <record id="log_fuel_13" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-11-02</field>
           <field name="liter">48.5</field>
           <field name="price_per_liter">1.37</field>
@@ -997,7 +797,7 @@
       <record id="log_fuel_14" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_1" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-12-02</field>
           <field name="liter">35</field>
           <field name="price_per_liter">1.4</field>
@@ -1016,7 +816,7 @@
       <record id="log_fuel_15" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-01-01</field>
           <field name="liter">45</field>
           <field name="price_per_liter">1.27</field>
@@ -1035,7 +835,7 @@
       <record id="log_fuel_16" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-02-11</field>
           <field name="liter">30</field>
           <field name="price_per_liter">1.3</field>
@@ -1054,7 +854,7 @@
        <record id="log_fuel_17" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-03-23</field>
           <field name="liter">52</field>
           <field name="price_per_liter">1.32</field>
@@ -1073,7 +873,7 @@
       <record id="log_fuel_18" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-04-5</field>
           <field name="liter">35</field>
           <field name="price_per_liter">1.32</field>
@@ -1092,7 +892,7 @@
       <record id="log_fuel_19" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-04-25</field>
           <field name="liter">55</field>
           <field name="price_per_liter">1.35</field>
@@ -1111,7 +911,7 @@
       <record id="log_fuel_20" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-05-15</field>
           <field name="liter">41.8</field>
           <field name="price_per_liter">1.35</field>
@@ -1130,7 +930,7 @@
       <record id="log_fuel_21" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-06-11</field>
           <field name="liter">50</field>
           <field name="price_per_liter">1.35</field>
@@ -1149,7 +949,7 @@
       <record id="log_fuel_22" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-07-02</field>
           <field name="liter">50</field>
           <field name="price_per_liter">1.35</field>
@@ -1168,7 +968,7 @@
       <record id="log_fuel_23" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-07-28</field>
           <field name="liter">50</field>
           <field name="price_per_liter">1.35</field>
@@ -1187,7 +987,7 @@
        <record id="log_fuel_24" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-08-17</field>
           <field name="liter">20</field>
           <field name="price_per_liter">1.35</field>
@@ -1206,7 +1006,7 @@
       <record id="log_fuel_25" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-09-11</field>
           <field name="liter">44.5</field>
           <field name="price_per_liter">1.35</field>
@@ -1225,7 +1025,7 @@
       <record id="log_fuel_26" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-10-06</field>
           <field name="liter">48.5</field>
           <field name="price_per_liter">1.37</field>
@@ -1244,7 +1044,7 @@
       <record id="log_fuel_27" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-11-02</field>
           <field name="liter">55</field>
           <field name="price_per_liter">1.37</field>
@@ -1263,7 +1063,7 @@
       <record id="log_fuel_28" model="fleet.vehicle.log.fuel">
           <field name="purchaser_id" ref="base.res_partner_address_18" />
           <field name="vehicle_id" ref="vehicle_2" />
-          <field name="vendor_id">6</field>
+          <field name="vendor_id" ref="base.res_partner_12"/>
           <field name="date">2012-12-02</field>
           <field name="liter">35</field>
           <field name="price_per_liter">1.4</field>
@@ -1405,6 +1205,7 @@
         <field name="purchaser_id" ref="base.res_partner_address_18" />
         <field name="insurer_id" ref="base.res_partner_2" />
         <field name="notes">Daily leasing contract</field>
+        <field name="user_id" ref="base.user_admin"/>
       </record>
 
       <record id="contract_cost_11" model="fleet.vehicle.cost" >
@@ -1443,6 +1244,7 @@
         <field name="purchaser_id" ref="base.res_partner_address_18" />
         <field name="insurer_id" ref="base.res_partner_2" />
         <field name="notes">Weekly leasing contract</field>
+        <field name="user_id" ref="base.user_admin"/>
       </record>
 
       <record id="contract_cost_21" model="fleet.vehicle.cost" >
@@ -1481,6 +1283,7 @@
         <field name="purchaser_id" ref="base.res_partner_address_18" />
         <field name="insurer_id" ref="base.res_partner_2" />
         <field name="notes">Monthly leasing contract</field>
+        <field name="user_id" ref="base.user_admin"/>
       </record>
 
       <record id="contract_cost_31" model="fleet.vehicle.cost" >
@@ -1519,6 +1322,7 @@
         <field name="purchaser_id" ref="base.res_partner_address_18" />
         <field name="insurer_id" ref="base.res_partner_2" />
         <field name="notes">Yearly leasing contract</field>
+        <field name="user_id" ref="base.user_admin"/>
       </record>
 
       <record id="contract_cost_41" model="fleet.vehicle.cost" >
@@ -1557,6 +1361,7 @@
         <field name="purchaser_id" ref="base.res_partner_address_18" />
         <field name="insurer_id" ref="base.res_partner_2" />
         <field name="notes">Unique leasing contract</field>
+        <field name="user_id" ref="base.user_admin"/>
       </record>
 
       <record id="contract_cost_51" model="fleet.vehicle.cost" >

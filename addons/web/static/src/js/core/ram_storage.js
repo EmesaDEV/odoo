@@ -8,13 +8,18 @@ odoo.define('web.RamStorage', function (require) {
  */
 
 var Class = require('web.Class');
+var mixins = require('web.mixins');
 
-var RamStorage = Class.extend({
+
+var RamStorage = Class.extend(mixins.EventDispatcherMixin, {
     /**
      * @constructor
      */
     init: function () {
-        this.storage = Object.create(null);
+        mixins.EventDispatcherMixin.init.call(this);
+        if (!this.storage) {
+            this.clear();
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -25,7 +30,8 @@ var RamStorage = Class.extend({
      * Removes all data from the storage
      */
     clear: function () {
-        this.init();
+        this.storage = Object.create(null);
+        this.length = 0;
     },
     /**
      * Returns the value associated with a given key in the storage
@@ -37,12 +43,23 @@ var RamStorage = Class.extend({
         return this.storage[key];
     },
     /**
+     * @param {integer} index
+     * @return {string}
+     */
+    key: function (index) {
+        return _.keys(this.storage)[index];
+    },
+    /**
      * Removes the given key from the storage
      *
      * @param {string} key
      */
     removeItem: function (key) {
+        if (key in this.storage) {
+            this.length--;
+        }
         delete this.storage[key];
+        this.trigger('storage', {key: key, newValue: null});
     },
     /**
      * Adds a given key-value pair to the storage, or update the value of the
@@ -52,7 +69,11 @@ var RamStorage = Class.extend({
      * @param {string} value
      */
     setItem: function (key, value) {
+        if (!(key in this.storage)) {
+            this.length++;
+        }
         this.storage[key] = value;
+        this.trigger('storage', {key: key, newValue: value});
     },
 });
 

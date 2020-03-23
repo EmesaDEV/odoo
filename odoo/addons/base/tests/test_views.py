@@ -7,10 +7,12 @@ from lxml import etree
 from lxml.builder import E
 from psycopg2 import IntegrityError
 
-from odoo.osv.orm import modifiers_tests
 from odoo.exceptions import ValidationError
 from odoo.tests import common
 from odoo.tools import mute_logger
+from odoo.addons.base.models.ir_ui_view import (
+    transfer_field_to_modifiers, transfer_node_to_modifiers, simplify_modifiers,
+)
 
 
 class ViewXMLID(common.TransactionCase):
@@ -237,6 +239,32 @@ class TestViewInheritance(ViewCase):
                 'arch': self.arch_for('itself', parent=True),
             })
 
+    def test_write_arch(self):
+        self.env['res.lang'].load_lang('fr_FR')
+
+        v = self.makeView("T", arch='<form string="Foo">Bar</form>')
+        self.env['ir.translation']._upsert_translations([{
+            'type': 'model_terms',
+            'name': 'ir.ui.view,arch_db',
+            'lang': 'fr_FR',
+            'res_id': v.id,
+            'src': 'Foo',
+            'value': 'Fou',
+        }, {
+            'type': 'model_terms',
+            'name': 'ir.ui.view,arch_db',
+            'lang': 'fr_FR',
+            'res_id': v.id,
+            'src': 'Bar',
+            'value': 'Barre',
+        }])
+        self.assertEqual(v.arch, '<form string="Foo">Bar</form>')
+
+        # modify v to discard translations; this should not invalidate 'arch'!
+        v.arch = '<form></form>'
+        self.assertEqual(v.arch, '<form></form>')
+
+
 class TestApplyInheritanceSpecs(ViewCase):
     """ Applies a sequence of inheritance specification nodes to a base
     architecture. IO state parameters (cr, uid, model, context) are used for
@@ -385,6 +413,187 @@ class TestApplyInheritanceWrapSpecs(ViewCase):
             ))
         )
 
+
+class TestApplyInheritanceMoveSpecs(ViewCase):
+    def setUp(self):
+        super(TestApplyInheritanceMoveSpecs, self).setUp()
+        self.base_arch = E.template(
+            E.div(E.p("Content", {'class': 'some'})),
+            E.div({'class': 'target'})
+        )
+        self.wrapped_arch = E.template(
+            E.div("aaaa", E.p("Content", {'class': 'some'}), "bbbb"),
+            E.div({'class': 'target'})
+        )
+
+    def apply_spec(self, arch, spec):
+        self.View.apply_inheritance_specs(arch, spec, None)
+
+    def test_move_replace(self):
+        spec = E.xpath(
+            E.xpath(expr="//p", position="move"),
+            expr="//div[@class='target']", position="replace")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(),
+                E.p("Content", {'class': 'some'})
+            )
+        )
+        self.apply_spec(self.wrapped_arch, spec)
+        self.assertEqual(
+            self.wrapped_arch,
+            E.template(
+                E.div("aaaabbbb"),
+                E.p("Content", {'class': 'some'})
+            )
+        )
+
+    def test_move_inside(self):
+        spec = E.xpath(
+            E.xpath(expr="//p", position="move"),
+            expr="//div[@class='target']", position="inside")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(),
+                E.div(E.p("Content", {'class': 'some'}), {'class': 'target'})
+            )
+        )
+        self.apply_spec(self.wrapped_arch, spec)
+        self.assertEqual(
+            self.wrapped_arch,
+            E.template(
+                E.div("aaaabbbb"),
+                E.div(E.p("Content", {'class': 'some'}), {'class': 'target'})
+            )
+        )
+
+    def test_move_before(self):
+        spec = E.xpath(
+            E.xpath(expr="//p", position="move"),
+            expr="//div[@class='target']", position="before")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(""),
+                E.p("Content", {'class': 'some'}),
+                E.div({'class': 'target'}),
+            )
+        )
+        self.apply_spec(self.wrapped_arch, spec)
+        self.assertEqual(
+            self.wrapped_arch,
+            E.template(
+                E.div("aaaabbbb"),
+                E.p("Content", {'class': 'some'}),
+                E.div({'class': 'target'}),
+            )
+        )
+
+    def test_move_after(self):
+        spec = E.xpath(
+            E.xpath(expr="//p", position="move"),
+            expr="//div[@class='target']", position="after")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(),
+                E.div({'class': 'target'}),
+                E.p("Content", {'class': 'some'}),
+            )
+        )
+        self.apply_spec(self.wrapped_arch, spec)
+        self.assertEqual(
+            self.wrapped_arch,
+            E.template(
+                E.div("aaaabbbb"),
+                E.div({'class': 'target'}),
+                E.p("Content", {'class': 'some'}),
+            )
+        )
+
+    def test_move_with_other_1(self):
+        # multiple elements with move in first position
+        spec = E.xpath(
+            E.xpath(expr="//p", position="move"),
+            E.p("Content2", {'class': 'new_p'}),
+            expr="//div[@class='target']", position="after")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(),
+                E.div({'class': 'target'}),
+                E.p("Content", {'class': 'some'}),
+                E.p("Content2", {'class': 'new_p'}),
+            )
+        )
+
+    def test_move_with_other_2(self):
+        # multiple elements with move in last position
+        spec = E.xpath(
+            E.p("Content2", {'class': 'new_p'}),
+            E.xpath(expr="//p", position="move"),
+            expr="//div[@class='target']", position="after")
+
+        self.apply_spec(self.wrapped_arch, spec)
+        self.assertEqual(
+            self.wrapped_arch,
+            E.template(
+                E.div("aaaabbbb"),
+                E.div({'class': 'target'}),
+                E.p("Content2", {'class': 'new_p'}),
+                E.p("Content", {'class': 'some'}),
+            )
+        )
+
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
+    def test_incorrect_move_1(self):
+        # cannot move an inexisting element
+        spec = E.xpath(
+            E.xpath(expr="//p[@name='none']", position="move"),
+            expr="//div[@class='target']", position="after")
+
+        with self.assertRaises(ValueError):
+            self.apply_spec(self.base_arch, spec)
+
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
+    def test_incorrect_move_2(self):
+        # move xpath cannot contain any children
+        spec = E.xpath(
+            E.xpath(E.p("Content2", {'class': 'new_p'}), expr="//p", position="move"),
+            expr="//div[@class='target']", position="after")
+
+        with self.assertRaises(ValueError):
+            self.apply_spec(self.base_arch, spec)
+
+    def test_incorrect_move_3(self):
+        # move won't be correctly applied if not a direct child of an xpath
+        spec = E.xpath(
+            E.div(E.xpath(E.p("Content2", {'class': 'new_p'}), expr="//p", position="move"), {'class': 'wrapper'}),
+            expr="//div[@class='target']", position="after")
+
+        self.apply_spec(self.base_arch, spec)
+        self.assertEqual(
+            self.base_arch,
+            E.template(
+                E.div(E.p("Content", {'class': 'some'})),
+                E.div({'class': 'target'}),
+                E.div(E.xpath(E.p("Content2", {'class': 'new_p'}), expr="//p", position="move"), {'class': 'wrapper'}),
+            )
+        )
+
+
 class TestApplyInheritedArchs(ViewCase):
     """ Applies a sequence of modificator archs to a base view
     """
@@ -437,7 +646,7 @@ class TestNoModel(ViewCase):
             'type': 'qweb',
         })
         self.env['ir.translation'].create({
-            'type': 'model',
+            'type': 'model_terms',
             'name': 'ir.ui.view,arch_db',
             'res_id': view.id,
             'lang': 'fr_FR',
@@ -493,6 +702,160 @@ class TestTemplating(ViewCase):
             second.get('data-oe-id'),
             "second should come from the extension view")
 
+    def test_branding_inherit_replace_node(self):
+        view1 = self.View.create({
+            'name': "Base view",
+            'type': 'qweb',
+            'arch': """<hello>
+                <world></world>
+                <world><t t-esc="hello"/></world>
+                <world></world>
+            </hello>
+            """
+        })
+        self.View.create({
+            'name': "Extension",
+            'type': 'qweb',
+            'inherit_id': view1.id,
+            'arch': """<xpath expr="/hello/world[1]" position="replace">
+                <world>Is a ghetto</world>
+                <world>Wonder when I'll find paradise</world>
+            </xpath>
+            """
+        })
+
+        arch_string = view1.with_context(inherit_branding=True).read_combined(['arch'])['arch']
+
+        arch = etree.fromstring(arch_string)
+        self.View.distribute_branding(arch)
+
+        # First world - has been replaced by inheritance
+        [initial] = arch.xpath('/hello[1]/world[1]')
+        self.assertEqual(
+            '/xpath/world[1]',
+            initial.get('data-oe-xpath'),
+            'Inherited nodes have correct xpath')
+
+        # Second world added by inheritance
+        [initial] = arch.xpath('/hello[1]/world[2]')
+        self.assertEqual(
+            '/xpath/world[2]',
+            initial.get('data-oe-xpath'),
+            'Inherited nodes have correct xpath')
+
+        # Third world - is not editable
+        [initial] = arch.xpath('/hello[1]/world[3]')
+        self.assertFalse(
+            initial.get('data-oe-xpath'),
+            'node containing t-esc is not branded')
+
+        # The most important assert
+        # Fourth world - should have a correct oe-xpath, which is 3rd in main view
+        [initial] = arch.xpath('/hello[1]/world[4]')
+        self.assertEqual(
+            '/hello[1]/world[3]',
+            initial.get('data-oe-xpath'),
+            "The node's xpath position should be correct")
+
+    def test_branding_inherit_replace_node2(self):
+        view1 = self.View.create({
+            'name': "Base view",
+            'type': 'qweb',
+            'arch': """<hello>
+                <world></world>
+                <world><t t-esc="hello"/></world>
+                <world></world>
+            </hello>
+            """
+        })
+        self.View.create({
+            'name': "Extension",
+            'type': 'qweb',
+            'inherit_id': view1.id,
+            'arch': """<xpath expr="/hello/world[1]" position="replace">
+                <war>Is a ghetto</war>
+                <world>Wonder when I'll find paradise</world>
+            </xpath>
+            """
+        })
+
+        arch_string = view1.with_context(inherit_branding=True).read_combined(['arch'])['arch']
+
+        arch = etree.fromstring(arch_string)
+        self.View.distribute_branding(arch)
+
+        [initial] = arch.xpath('/hello[1]/war[1]')
+        self.assertEqual(
+            '/xpath/war',
+            initial.get('data-oe-xpath'),
+            'Inherited nodes have correct xpath')
+
+        # First world: from inheritance
+        [initial] = arch.xpath('/hello[1]/world[1]')
+        self.assertEqual(
+            '/xpath/world',
+            initial.get('data-oe-xpath'),
+            'Inherited nodes have correct xpath')
+
+        # Second world - is not editable
+        [initial] = arch.xpath('/hello[1]/world[2]')
+        self.assertFalse(
+            initial.get('data-oe-xpath'),
+            'node containing t-esc is not branded')
+
+        # The most important assert
+        # Third world - should have a correct oe-xpath, which is 3rd in main view
+        [initial] = arch.xpath('/hello[1]/world[3]')
+        self.assertEqual(
+            '/hello[1]/world[3]',
+            initial.get('data-oe-xpath'),
+            "The node's xpath position should be correct")
+
+    def test_branding_primary_inherit(self):
+        view1 = self.View.create({
+            'name': "Base view",
+            'type': 'qweb',
+            'arch': """<root>
+                <item order="1"/>
+            </root>
+            """
+        })
+        view2 = self.View.create({
+            'name': "Extension",
+            'type': 'qweb',
+            'mode': 'primary',
+            'inherit_id': view1.id,
+            'arch': """<xpath expr="//item" position="after">
+                <item order="2"/>
+            </xpath>
+            """
+        })
+
+        arch_string = view2.with_context(inherit_branding=True).read_combined(['arch'])['arch']
+
+        arch = etree.fromstring(arch_string)
+        self.View.distribute_branding(arch)
+
+        [initial] = arch.xpath('//item[@order=1]')
+        self.assertEqual(
+            initial.get('data-oe-id'),
+            str(view1.id),
+            "initial should come from the root view")
+        self.assertEqual(
+            initial.get('data-oe-xpath'),
+            '/root[1]/item[1]',
+            "initial's xpath should be within the inherited view only")
+
+        [second] = arch.xpath('//item[@order=2]')
+        self.assertEqual(
+            second.get('data-oe-id'),
+            str(view2.id),
+            "second should come from the extension view")
+        self.assertEqual(
+            second.get('data-oe-xpath'),
+            '/xpath/item',
+            "second xpath should be on the inheriting view only")
+
     def test_branding_distribute_inner(self):
         """ Checks that the branding is correctly distributed within a view
         extension
@@ -542,6 +905,21 @@ class TestTemplating(ViewCase):
                 })
             )
         )
+
+    def test_call_no_branding(self):
+        view = self.View.create({
+            'name': "Base View",
+            'type': 'qweb',
+            'arch': """<root>
+                <item><span t-call="foo"/></item>
+            </root>""",
+        })
+
+        arch_string = view.with_context(inherit_branding=True).read_combined(['arch'])['arch']
+        arch = etree.fromstring(arch_string)
+        self.View.distribute_branding(arch)
+
+        self.assertEqual(arch, E.root(E.item(E.span({'t-call': "foo"}))))
 
     def test_esc_no_branding(self):
         view = self.View.create({
@@ -685,7 +1063,7 @@ class TestViews(ViewCase):
                     <separator name="separator" string="Separator" colspan="4"/>
                     <footer>
                         <button name="action_next" type="object" string="Next button" class="btn-primary"/>
-                        <button string="Skip" special="cancel" class="btn-default"/>
+                        <button string="Skip" special="cancel" class="btn-secondary"/>
                     </footer>
                 </form>
             """
@@ -810,7 +1188,7 @@ class TestViews(ViewCase):
                     <separator name="separator" string="Separator" colspan="4"/>
                     <footer>
                         <button name="action_next" type="object" string="Next button" class="btn-primary"/>
-                        <button string="Skip" special="cancel" class="btn-default"/>
+                        <button string="Skip" special="cancel" class="btn-secondary"/>
                     </footer>
                 </form>
             """
@@ -863,8 +1241,36 @@ class TestViews(ViewCase):
             ))
 
     def test_modifiers(self):
-        # implemeted elsewhere...
-        modifiers_tests()
+        def _test_modifiers(what, expected):
+            modifiers = {}
+            if isinstance(what, str):
+                node = etree.fromstring(what)
+                transfer_node_to_modifiers(node, modifiers)
+                simplify_modifiers(modifiers)
+                assert modifiers == expected, "%s != %s" % (modifiers, expected)
+            elif isinstance(what, dict):
+                transfer_field_to_modifiers(what, modifiers)
+                simplify_modifiers(modifiers)
+                assert modifiers == expected, "%s != %s" % (modifiers, expected)
+        _test_modifiers('<field name="a"/>', {})
+        _test_modifiers('<field name="a" invisible="1"/>', {"invisible": True})
+        _test_modifiers('<field name="a" readonly="1"/>', {"readonly": True})
+        _test_modifiers('<field name="a" required="1"/>', {"required": True})
+        _test_modifiers('<field name="a" invisible="0"/>', {})
+        _test_modifiers('<field name="a" readonly="0"/>', {})
+        _test_modifiers('<field name="a" required="0"/>', {})
+        # TODO: Order is not guaranteed
+        _test_modifiers('<field name="a" invisible="1" required="1"/>',
+            {"invisible": True, "required": True})
+        _test_modifiers('<field name="a" invisible="1" required="0"/>', {"invisible": True})
+        _test_modifiers('<field name="a" invisible="0" required="1"/>', {"required": True})
+        _test_modifiers("""<field name="a" attrs="{'invisible': [['b', '=', 'c']]}"/>""",
+            {"invisible": [["b", "=", "c"]]})
+
+        # The dictionary is supposed to be the result of fields_get().
+        _test_modifiers({}, {})
+        _test_modifiers({"invisible": True}, {"invisible": True})
+        _test_modifiers({"invisible": False}, {})
 
     @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_invalid_field(self):
@@ -1129,7 +1535,7 @@ class TestViews(ViewCase):
                 'arch': arch % '',
             })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_domain_on_field_in_subview(self):
         field = self.env['ir.ui.view']._fields['inherit_id']
         self.patch(field, 'domain', "[('model', '=', model)]")
@@ -1163,7 +1569,7 @@ class TestViews(ViewCase):
                 'arch': arch % ('<field name="model"/>', ''),
             })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_domain_on_field_in_subview_with_parent(self):
         field = self.env['ir.ui.view']._fields['inherit_id']
         self.patch(field, 'domain', "[('model', '=', parent.model)]")
@@ -1197,7 +1603,7 @@ class TestViews(ViewCase):
                 'arch': arch % ('', '<field name="model"/>'),
             })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_domain_on_field_in_noneditable_subview(self):
         field = self.env['ir.ui.view']._fields['inherit_id']
         self.patch(field, 'domain', "[('model', '=', model)]")
@@ -1225,7 +1631,7 @@ class TestViews(ViewCase):
                 'arch': arch % ' editable="bottom"',
             })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_domain_on_readonly_field_in_view(self):
         field = self.env['ir.ui.view']._fields['inherit_id']
         self.patch(field, 'domain', "[('model', '=', model)]")
@@ -1255,7 +1661,7 @@ class TestViews(ViewCase):
             'arch': arch,
         })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_domain_on_readonly_field_in_subview(self):
         field = self.env['ir.ui.view']._fields['inherit_id']
         self.patch(field, 'domain', "[('model', '=', model)]")
@@ -1283,7 +1689,7 @@ class TestViews(ViewCase):
                 'arch': arch % '',
             })
 
-    @mute_logger('odoo.addons.base.ir.ir_ui_view')
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
     def test_attrs_field(self):
         arch = """
             <form string="View">
@@ -1368,6 +1774,99 @@ class TestViews(ViewCase):
                 'arch': arch % ('', '<field name="model"/>'),
             })
 
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
+    def test_tree_groupby(self):
+        arch = """
+            <tree>
+                <field name="name"/>
+                <groupby name="%s">
+                    <button type="object" name="method1"/>
+                </groupby>
+            </tree>
+        """
+        self.View.create({
+            'name': 'valid groupby',
+            'model': 'ir.ui.view',
+            'arch': arch % ('model_data_id'),
+        })
+        with self.assertRaises(ValidationError):
+            self.View.create({
+                'name': 'invalid groupby',
+                'model': 'ir.ui.view',
+                'arch': arch % ('type'),
+            })
+
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
+    def test_tree_groupby_many2one(self):
+        arch = """
+            <tree>
+                <field name="name"/>
+                %s
+                <groupby name="model_data_id">
+                    %s
+                    <button type="object" name="method" attrs="{'invisible': [('noupdate', '=', True)]}" string="Button1"/>
+                </groupby>
+            </tree>
+        """
+        self.View.create({
+            'name': 'valid groupby',
+            'model': 'ir.ui.view',
+            'arch': arch % ('', '<field name="noupdate"/>'),
+        })
+        with self.assertRaises(ValidationError):
+            self.View.create({
+                'name': 'invalid groupby',
+                'model': 'ir.ui.view',
+                'arch': arch % ('', ''),
+            })
+        with self.assertRaises(ValidationError):
+            self.View.create({
+                'name': 'invalid groupby',
+                'model': 'ir.ui.view',
+                'arch': arch % ('<field name="noupdate"/>', ''),
+            })
+        with self.assertRaises(ValidationError):
+            self.View.create({
+                'name': 'invalid groupby',
+                'model': 'ir.ui.view',
+                'arch': arch % ('', '<field name="noupdate"/><field name="fake_field"/>'),
+            })
+
+    @mute_logger('odoo.addons.base.models.ir_ui_view')
+    def test_check_xml_on_reenable(self):
+        view1 = self.View.create({
+            'name': 'valid _check_xml',
+            'model': 'ir.ui.view',
+            'arch': """
+                <form string="View">
+                    <field name="name"/>
+                </form>
+            """,
+        })
+        view2 = self.View.create({
+            'name': 'valid _check_xml',
+            'model': 'ir.ui.view',
+            'inherit_id': view1.id,
+            'active': False,
+            'arch': """
+                <field name="foo" position="after">
+                    <field name="bar"/>
+                </field>
+            """
+        })
+        with self.assertRaises(ValueError):
+            view2.active = True
+
+        # Re-enabling the view and correcting it at the same time should not raise the `_check_xml` constraint.
+        view2.write({
+            'active': True,
+            'arch': """
+                <field name="name" position="after">
+                    <span>bar</span>
+                </field>
+            """,
+        })
+
 
 class ViewModeField(ViewCase):
     """
@@ -1392,6 +1891,12 @@ class ViewModeField(ViewCase):
         })
         self.assertEqual(view2.mode, 'extension')
 
+        view2.write({'inherit_id': None})
+        self.assertEqual(view2.mode, 'primary')
+
+        view2.write({'inherit_id': view.id})
+        self.assertEqual(view2.mode, 'extension')
+
     @mute_logger('odoo.sql_db')
     def testModeExplicit(self):
         view = self.View.create({
@@ -1404,6 +1909,7 @@ class ViewModeField(ViewCase):
             'arch': '<qweb/>'
         })
         self.assertEqual(view.mode, 'primary')
+        self.assertEqual(view2.mode, 'primary')
 
         with self.assertRaises(IntegrityError):
             self.View.create({
@@ -1423,6 +1929,7 @@ class ViewModeField(ViewCase):
         })
         with self.assertRaises(IntegrityError):
             view_pure_primary.write({'mode': 'extension'})
+            view_pure_primary.flush()
 
     def testInheritPrimaryToExtension(self):
         """
@@ -1454,6 +1961,27 @@ class ViewModeField(ViewCase):
         })
 
         view.write({'mode': 'primary'})
+
+    def testChangeInheritOfPrimary(self):
+        """
+        A primary view with an inherit_id must remain primary when changing the inherit_id
+        """
+        base1 = self.View.create({
+            'inherit_id': None,
+            'arch': '<qweb/>',
+        })
+        base2 = self.View.create({
+            'inherit_id': None,
+            'arch': '<qweb/>',
+        })
+        view = self.View.create({
+            'mode': 'primary',
+            'inherit_id': base1.id,
+            'arch': '<qweb/>',
+        })
+        self.assertEqual(view.mode, 'primary')
+        view.write({'inherit_id': base2.id})
+        self.assertEqual(view.mode, 'primary')
 
 
 class TestDefaultView(ViewCase):

@@ -1,6 +1,7 @@
 odoo.define('base.settings', function (require) {
 "use strict";
 
+var BasicModel = require('web.BasicModel');
 var core = require('web.core');
 var config = require('web.config');
 var FormView = require('web.FormView');
@@ -9,6 +10,7 @@ var FormRenderer = require('web.FormRenderer');
 var view_registry = require('web.view_registry');
 
 var QWeb = core.qweb;
+var _t = core._t;
 
 var BaseSettingRenderer = FormRenderer.extend({
     events: _.extend({}, FormRenderer.prototype.events, {
@@ -23,12 +25,35 @@ var BaseSettingRenderer = FormRenderer.extend({
     },
 
     start: function () {
-        this._super.apply(this, arguments);
+        var prom = this._super.apply(this, arguments);
         if (config.device.isMobile) {
             core.bus.on("DOM_updated", this, function () {
                 this._moveToTab(this.currentIndex || this._currentAppIndex());
             });
         }
+        return prom;
+    },
+
+    /**
+     * @override
+     * overridden to show a message, informing user that there are changes
+     */
+    confirmChange: function () {
+        var self = this;
+        return this._super.apply(this, arguments).then(function () {
+            if (!self.$(".o_dirty_warning").length) {
+                self.$('.o_statusbar_buttons')
+                    .append($('<span/>', {text: _t("Unsaved changes"), class: 'text-muted ml-2 o_dirty_warning'}))
+            }
+        });
+    },
+    /**
+     * @override
+     */
+    on_attach_callback: function () {
+        this._super.apply(this, arguments);
+        // set default focus on searchInput
+        this.searchInput.focus();
     },
 
     /**
@@ -170,19 +195,6 @@ var BaseSettingRenderer = FormRenderer.extend({
         }));
     },
     /**
-     * add placeholder attr in input element
-     * @override
-     * @private
-     * @param {jQueryElement} $el
-     * @param {Object} node
-     */
-    _handleAttributes: function ($el, node) {
-        this._super.apply(this, arguments);
-        if (node.attrs.placeholder) {
-            $el.attr('placeholder', node.attrs.placeholder);
-        }
-    },
-    /**
      * move to selected setting
      *
      * @private
@@ -212,6 +224,7 @@ var BaseSettingRenderer = FormRenderer.extend({
     },
 
     _onSettingTabClick: function (event) {
+        this.searchInput.focus();
         if (this.searchText.length > 0) {
             this.searchInput.val('');
             this.searchText = "";
@@ -255,16 +268,16 @@ var BaseSettingRenderer = FormRenderer.extend({
     },
 
     _render: function () {
-        var res = this._super.apply(this, arguments);
-        if (!this.modules) {
-            this._initModules();
-        }
-        this._renderLeftPanel();
-        this._initSearch();
-        if (config.device.isMobile) {
-            this._enableSwipe();
-        }
-        return res;
+        var self = this;
+        return this._super.apply(this, arguments).then(function() {
+            self._initModules();
+            self._renderLeftPanel();
+            self._initSearch();
+            
+            if (config.device.isMobile) {
+                self._enableSwipe();
+            }
+        });
     },
 
     _renderLeftPanel: function () {
@@ -296,7 +309,7 @@ var BaseSettingRenderer = FormRenderer.extend({
             module.settingView.find('h2').addClass('o_hidden');
             module.settingView.find('.settingSearchHeader').addClass('o_hidden');
             module.settingView.find('.o_settings_container').removeClass('mt16');
-            var resultSetting = module.settingView.find("label:containsTextLike('" + self.searchText + "')");
+            var resultSetting = module.settingView.find(".o_form_label:containsTextLike('" + self.searchText + "')");
             if (resultSetting.length > 0) {
                 resultSetting.each(function () {
                     var settingBox = $(this).closest('.o_setting_box');
@@ -334,15 +347,66 @@ var BaseSettingRenderer = FormRenderer.extend({
         }
         var match = text.search(new RegExp(word, "i"));
         word = text.substring(match, match + word.length);
-        var hilitedWord = "<span class='highlighter'>" + word + '</span>';
-        return text.replace(word, hilitedWord);
+        var highlightedWord = "<span class='highlighter'>" + word + '</span>';
+        return text.replace(word, highlightedWord);
     },
 });
 
 var BaseSettingController = FormController.extend({
+    custom_events: _.extend({}, FormController.prototype.custom_events, {
+        button_clicked: '_onButtonClicked',
+    }),
     init: function () {
         this._super.apply(this, arguments);
+        this.disableAutofocus = true;
         this.renderer.activeSettingTab = this.initialState.context.module;
+    },
+    /**
+     * Settings view should always be in edit mode, so we have to override
+     * default behaviour
+     *
+     * @override
+     */
+    willRestore: function () {
+        this.mode = 'edit';
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * @private
+     */
+    _onButtonClicked: function (ev) {
+        var self = this;
+        if (ev.data.attrs.name !== 'execute' && ev.data.attrs.name !== 'cancel') {
+            var recordID = ev.data.recordID;
+            var _super = this._super;
+            var args = arguments;
+            this._discardChanges(recordID).then(function () {
+                _super.apply(self, args);
+            });
+        } else {
+            this._super.apply(this, arguments);
+        }
+    },
+
+});
+
+var BaseSettingsModel = BasicModel.extend({
+    /**
+     * @override
+     */
+    save: function (recordID) {
+        var self = this;
+        return this._super.apply(this, arguments).then(function (result) {
+            // we remove here the res_id, because the record should still be
+            // considered new.  We want the web client to always perform a
+            // default_get to fetch the settings anew.
+            delete self.localData[recordID].res_id;
+            return result;
+        });
     },
 });
 
@@ -350,6 +414,7 @@ var BaseSettingView = FormView.extend({
     jsLibs: [],
 
     config: _.extend({}, FormView.prototype.config, {
+        Model: BaseSettingsModel,
         Renderer: BaseSettingRenderer,
         Controller: BaseSettingController,
     }),
@@ -370,6 +435,7 @@ var BaseSettingView = FormView.extend({
 view_registry.add('base_settings', BaseSettingView);
 
 return {
+    Model: BaseSettingsModel,
     Renderer: BaseSettingRenderer,
     Controller: BaseSettingController,
 };

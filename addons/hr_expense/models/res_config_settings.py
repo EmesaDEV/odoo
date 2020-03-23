@@ -9,7 +9,8 @@ class ResConfigSettings(models.TransientModel):
     expense_alias_prefix = fields.Char('Default Alias Name for Expenses')
     use_mailgateway = fields.Boolean(string='Let your employees record expenses by email',
                                      config_parameter='hr_expense.use_mailgateway')
-    module_sale_expense = fields.Boolean(string="Customer Billing")
+
+    module_hr_payroll_expense = fields.Boolean(string='Reimburse Expenses in Payslip')
 
     @api.model
     def get_values(self):
@@ -19,7 +20,6 @@ class ResConfigSettings(models.TransientModel):
         )
         return res
 
-    @api.multi
     def set_values(self):
         super(ResConfigSettings, self).set_values()
         self.env.ref('hr_expense.mail_alias_expense').write({'alias_name': self.expense_alias_prefix})

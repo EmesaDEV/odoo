@@ -27,7 +27,7 @@ class TestReflection(common.TransactionCase):
                 self.assertEqual(ir_field.state, 'manual' if field.manual else 'base')
                 self.assertEqual(ir_field.index, bool(field.index))
                 self.assertEqual(ir_field.store, bool(field.store))
-                self.assertEqual(ir_field.copy, bool(field.copy))
+                self.assertEqual(ir_field.copied, bool(field.copy))
                 self.assertEqual(ir_field.related, bool(field.related) and ".".join(field.related))
                 self.assertEqual(ir_field.readonly, bool(field.readonly))
                 self.assertEqual(ir_field.required, bool(field.required))
@@ -44,6 +44,18 @@ class TestReflection(common.TransactionCase):
                     relation = self.env['ir.model.relation'].search([('name', '=', field.relation)])
                     self.assertTrue(relation)
                     self.assertIn(relation.model.model, [field.model_name, field.comodel_name])
+                if field.type == 'selection':
+                    selection = [(sel.value, sel.name) for sel in ir_field.selection_ids]
+                    if isinstance(field.selection, list):
+                        self.assertEqual(selection, field.selection)
+                    else:
+                        self.assertEqual(selection, [])
+
+                field_description = field.get_description(self.env)
+                if field.type in ('many2many', 'one2many'):
+                    self.assertFalse(field_description['sortable'])
+                elif field.store and field.column_type:
+                    self.assertTrue(field_description['sortable'])
 
 
 class TestSchema(common.TransactionCase):

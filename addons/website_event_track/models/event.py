@@ -20,6 +20,7 @@ class EventType(models.Model):
 
 class EventMenu(models.Model):
     _name = "website.event.menu"
+    _description = "Website Event Menu"
 
     menu_id = fields.Many2one('website.menu', string='Menu', ondelete='cascade')
     event_id = fields.Many2one('event.event', string='Event', ondelete='cascade')
@@ -46,48 +47,43 @@ class Event(models.Model):
         'event.track.tag', relation='event_track_tags_rel', string='Track Tags',
         compute='_compute_tracks_tag_ids', store=True)
 
-    @api.multi
     def _compute_track_count(self):
         data = self.env['event.track'].read_group([('stage_id.is_cancel', '!=', True)], ['event_id'], ['event_id'])
         result = dict((data['event_id'][0], data['event_id_count']) for data in data)
         for event in self:
             event.track_count = result.get(event.id, 0)
 
-    @api.multi
     def _compute_sponsor_count(self):
         data = self.env['event.sponsor'].read_group([], ['event_id'], ['event_id'])
         result = dict((data['event_id'][0], data['event_id_count']) for data in data)
         for event in self:
             event.sponsor_count = result.get(event.id, 0)
 
-    @api.multi
-    def write(self, vals):
-        res = super(Event, self).write(vals)
+    def _toggle_create_website_menus(self, vals):
+        super(Event, self)._toggle_create_website_menus(vals)
         for event in self:
             if 'website_track' in vals:
                 if vals['website_track']:
-                    for sequence, (name, url, xml_id, menu_type) in enumerate(self._get_track_menu_entries()):
-                        menu = super(Event, self)._create_menu(sequence, name, url, xml_id)
-                        self.env['website.event.menu'].create({
-                            'menu_id':menu.id,
-                            'event_id':self.id,
-                            'menu_type':menu_type,
+                    for sequence, (name, url, xml_id, menu_type) in enumerate(event._get_track_menu_entries()):
+                        menu = super(Event, event)._create_menu(sequence, name, url, xml_id)
+                        event.env['website.event.menu'].create({
+                            'menu_id': menu.id,
+                            'event_id': event.id,
+                            'menu_type': menu_type,
                         })
                 else:
-                    self.track_menu_ids.mapped('menu_id').unlink()
+                    event.track_menu_ids.mapped('menu_id').unlink()
             if 'website_track_proposal' in vals:
                 if vals['website_track_proposal']:
-                    for sequence, (name, url, xml_id, menu_type) in enumerate(self._get_track_proposal_menu_entries()):
-                        menu = super(Event, self)._create_menu(sequence, name, url, xml_id)
-                        self.env['website.event.menu'].create({
-                            'menu_id':menu.id,
-                            'event_id':self.id,
-                            'menu_type':menu_type,
+                    for sequence, (name, url, xml_id, menu_type) in enumerate(event._get_track_proposal_menu_entries()):
+                        menu = super(Event, event)._create_menu(sequence, name, url, xml_id)
+                        event.env['website.event.menu'].create({
+                            'menu_id': menu.id,
+                            'event_id': event.id,
+                            'menu_type': menu_type,
                         })
                 else:
-                    self.track_proposal_menu_ids.mapped('menu_id').unlink()
-        return res
-
+                    event.track_proposal_menu_ids.mapped('menu_id').unlink()
 
     def _get_track_menu_entries(self):
         self.ensure_one()
@@ -101,11 +97,10 @@ class Event(models.Model):
         res = [(_('Talk Proposals'), '/event/%s/track_proposal' % slug(self), False, 'track_proposal')]
         return res
 
-    @api.multi
-    @api.depends('track_ids.tag_ids')
+    @api.depends('track_ids.tag_ids', 'track_ids.tag_ids.color')
     def _compute_tracks_tag_ids(self):
         for event in self:
-            event.tracks_tag_ids = event.track_ids.mapped('tag_ids').ids
+            event.tracks_tag_ids = event.track_ids.mapped('tag_ids').filtered(lambda tag: tag.color != 0).ids
 
     @api.onchange('event_type_id')
     def _onchange_type(self):

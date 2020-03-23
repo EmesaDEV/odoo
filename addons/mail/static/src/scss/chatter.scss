@@ -1,45 +1,35 @@
-// Default chatter layout.
-// Extended in enterprise by form_view.less to achieve the side-chatter
 .o_chatter {
-    width: 100%;
-    padding-top: 0!important;
-
     .o_spinner {
         text-align: center;
         font-size: large;
     }
 
     .o_chatter_topbar {
-        height: $o-statusbar-height;
-        position: relative;
-        margin: $grid-gutter-width*0.5 0 0;
-        padding: 0;
-        @include o-flex-display;
+        display: flex;
+        border-bottom: $nav-tabs-border-width solid transparent;
 
-        > .btn {
-            height: $o-statusbar-height + 1;
-            border: 1px solid transparent;
+        .btn {
+            @extend .text-nowrap;
+            margin-bottom: -$nav-tabs-border-width;
+            padding: $nav-link-padding-y $nav-link-padding-x;
+            border-radius: $border-radius-sm $border-radius-sm 0 0;
         }
 
-        > .o_followers {
-            height: $o-statusbar-height + 1;
-            border-bottom: 1px solid transparent;
-            @include o-flex(1,1,auto);
+        > .o_topbar_right_area {
+            display: flex;
+            margin-left: auto;
+            justify-content: flex-end;
         }
     }
 
     &.o_chatter_composer_active .o_chatter_topbar {
-        > .btn, > .o_followers{
-            border-radius: $border-radius-small $border-radius-small 0 0;
-            border-width: 0 0 1px;
-            border-bottom-color: $gray-lighter-dark;
+        border-bottom-color: gray('300');
 
-            &.o_active {
-                color: $o-brand-primary;
-                background-color: $gray-lighter;
-                border-color: $gray-lighter-dark;
-                border-width: 1px 1px 0;
-            }
+        .btn.o_active {
+            color: $o-brand-odoo;
+            background-color: theme-color('light');
+            border: $nav-tabs-border-width solid gray('300');
+            border-bottom-color: transparent;
         }
     }
 }

@@ -1,20 +1,19 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# * product_expiry
+# 	* product_expiry
 # 
 # Translators:
-# Martin Trigaux, 2017
-# Viktor Pogrebniak <vp@aifil.ru>, 2017
-# Максим Дронь <dronmax@gmail.com>, 2017
-# Collex100, 2017
-# Yuriy Ney <k_wizard@mail.ru>, 2017
+# Martin Trigaux, 2019
+# sergeiruzkiicode <sergei.ruzki@icode.by>, 2019
+# Ivan Yelizariev <yelizariev@it-projects.info>, 2020
+# 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~11.2\n"
+"Project-Id-Version: Odoo Server saas~12.5\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-03-22 14:10+0000\n"
-"PO-Revision-Date: 2018-03-22 14:10+0000\n"
-"Last-Translator: Yuriy Ney <k_wizard@mail.ru>, 2017\n"
+"POT-Creation-Date: 2019-09-09 12:17+0000\n"
+"PO-Revision-Date: 2019-08-26 09:13+0000\n"
+"Last-Translator: Ivan Yelizariev <yelizariev@it-projects.info>, 2020\n"
 "Language-Team: Russian (https://www.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,30 +22,29 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
 
 #. module: product_expiry
-#: model:ir.ui.view,arch_db:product_expiry.view_move_form_expiry
-#: model:ir.ui.view,arch_db:product_expiry.view_move_form_expiry_simple
+#: model_terms:ir.ui.view,arch_db:product_expiry.view_move_form_expiry
 msgid ""
-"<span class=\"label label-danger\" attrs=\"{'invisible': "
+"<span class=\"badge badge-danger\" attrs=\"{'invisible': "
 "[('product_expiry_alert', '=', False)]}\">Expiration Alert</span>"
 msgstr ""
-"<span class=\"label label-danger\" attrs=\"{'invisible': "
-"[('product_expiry_alert', '=', False)]}\">Предупреждение об истечении "
-"срока</span>"
+"<span class=\"badge badge-danger\" attrs=\"{'invisible': "
+"[('product_expiry_alert', '=', False)]}\">Оповещения об окончании срока "
+"действия</span>"
 
 #. module: product_expiry
-#: model:ir.ui.view,arch_db:product_expiry.report_delivery_document_inherit_product_expiry
-msgid "<span class=\"pull-right\">Expiry Date</span>"
-msgstr "<span class=\"pull-right\">Дата окончания</span>"
-
-#. module: product_expiry
-#: model:ir.ui.view,arch_db:product_expiry.view_product_form_expiry
-msgid "<span>days</span>"
-msgstr "<span>дней</span>"
+#: model_terms:ir.ui.view,arch_db:product_expiry.view_product_form_expiry
+msgid "<span> days</span>"
+msgstr "<span>дни</span>"
 
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_stock_production_lot__alert_date
 msgid "Alert Date"
 msgstr "Дата предупреждения"
+
+#. module: product_expiry
+#: model:mail.activity.type,name:product_expiry.mail_activity_type_alert_date_reached
+msgid "Alert Date Reached"
+msgstr "Дасягнуто дату оповещения"
 
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_stock_production_lot__use_date
@@ -59,22 +57,28 @@ msgid ""
 "Date to determine the expired lots and serial numbers using the filter "
 "\"Expiration Alerts\"."
 msgstr ""
+"Дата, чтобы определить срок окончания срока действия партии и серийных "
+"номеров с помощью фильтра `Предупреждение об окончании срока действия`."
 
 #. module: product_expiry
-#: model:ir.ui.view,arch_db:product_expiry.view_move_form_expiry
-#: model:ir.ui.view,arch_db:product_expiry.view_move_form_expiry_simple
-#: model:ir.ui.view,arch_db:product_expiry.view_product_form_expiry
+#: model_terms:ir.ui.view,arch_db:product_expiry.view_move_form_expiry
+#: model_terms:ir.ui.view,arch_db:product_expiry.view_product_form_expiry
 msgid "Dates"
 msgstr "Даты"
 
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_stock_production_lot__life_date
 msgid "End of Life Date"
-msgstr "Дата конца жизни"
+msgstr "Дата окончания срока службы"
 
 #. module: product_expiry
-#: model:ir.ui.view,arch_db:product_expiry.search_product_lot_filter_inherit_product_expiry
-msgid "Expiration alerts"
+#: model_terms:ir.ui.view,arch_db:product_expiry.search_product_lot_filter_inherit_product_expiry
+msgid "Expiration Alerts"
+msgstr "Оповещения об окончании срока действия"
+
+#. module: product_expiry
+#: model:ir.model.fields,field_description:product_expiry.field_stock_production_lot__product_expiry_reminded
+msgid "Expiry has been reminded"
 msgstr ""
 
 #. module: product_expiry
@@ -88,6 +92,7 @@ msgstr "Партия/Серия"
 msgid ""
 "Number of days before an alert should be raised on the lot/serial number."
 msgstr ""
+"Количество дней до извещения нужно увеличить на партии / серийном номере."
 
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_product_product__life_time
@@ -96,6 +101,8 @@ msgid ""
 "Number of days before the goods may become dangerous and must not be "
 "consumed. It will be computed on the lot/serial number."
 msgstr ""
+"Количество дней до того, как товары могут стать опасными и не должны "
+"потребляться. Это будет высчитываться на партию / серийный номер."
 
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_product_product__removal_time
@@ -104,6 +111,8 @@ msgid ""
 "Number of days before the goods should be removed from the stock. It will be"
 " computed on the lot/serial number."
 msgstr ""
+"Количество дней до того, как товары должны быть удалены со склада. Это будет"
+" высчитываться на партию / серийный номер."
 
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_product_product__use_time
@@ -112,6 +121,13 @@ msgid ""
 "Number of days before the goods starts deteriorating, without being "
 "dangerous yet. It will be computed using the lot/serial number."
 msgstr ""
+"Количество дней до того, как товар начинает портиться, но еще не опасен. Это"
+" будет исчисляться по партии / серийным номером."
+
+#. module: product_expiry
+#: model:ir.model,name:product_expiry.model_procurement_group
+msgid "Procurement Group"
+msgstr "Группа поставки"
 
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_product_product__alert_time
@@ -122,7 +138,7 @@ msgstr "Время оповещения товара"
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_stock_production_lot__product_expiry_alert
 msgid "Product Expiry Alert"
-msgstr ""
+msgstr "Оповещения об окончании срока действия товара"
 
 #. module: product_expiry
 #: model:ir.model.fields,field_description:product_expiry.field_product_product__life_time
@@ -161,7 +177,13 @@ msgstr "Дата удаления"
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_stock_production_lot__product_expiry_alert
 msgid "The Alert Date has been reached."
-msgstr ""
+msgstr "Дата сообщения была достигнута."
+
+#. module: product_expiry
+#: code:addons/product_expiry/models/production_lot.py:0
+#, python-format
+msgid "The alert date has been reached for this lot/serial number"
+msgstr "Дата оповещения об этой партии / серийный номер был достигнут"
 
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_stock_production_lot__life_date
@@ -177,10 +199,8 @@ msgstr ""
 #: model:ir.model.fields,help:product_expiry.field_stock_quant__removal_date
 msgid ""
 "This is the date on which the goods with this Serial Number should be "
-"removed from the stock."
+"removed from the stock. This date will be used in FEFO removal strategy."
 msgstr ""
-"Это дата, на которую товары с этим серийным номером должны быть удалены из "
-"запаса."
 
 #. module: product_expiry
 #: model:ir.model.fields,help:product_expiry.field_stock_production_lot__use_date

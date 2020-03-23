@@ -120,8 +120,10 @@ import traceback
 from functools import partial
 from zlib import crc32
 
+from datetime import date, datetime, time
 import odoo.modules
 from odoo.tools import pycompat
+from odoo.tools.misc import get_lang
 from ..models import MAGIC_COLUMNS, BaseModel
 import odoo.tools as tools
 
@@ -133,8 +135,8 @@ AND_OPERATOR = '&'
 DOMAIN_OPERATORS = (NOT_OPERATOR, OR_OPERATOR, AND_OPERATOR)
 
 # List of available term operators. It is also possible to use the '<>'
-# operator, which is strictly the same as '!='; the later should be prefered
-# for consistency. This list doesn't contain '<>' as it is simpified to '!='
+# operator, which is strictly the same as '!='; the later should be preferred
+# for consistency. This list doesn't contain '<>' as it is simplified to '!='
 # by the normalize_operator() function (so later part of the code deals with
 # only one representation).
 # Internals (i.e. not available to the user) 'inselect' and 'not inselect'
@@ -189,7 +191,7 @@ def normalize_domain(domain):
     """
     assert isinstance(domain, (list, tuple)), "Domains to normalize must have a 'domain' form: a list or tuple of domain components"
     if not domain:
-        return TRUE_DOMAIN
+        return [TRUE_LEAF]
     result = []
     expected = 1                            # expected number of expressions
     op_arity = {NOT_OPERATOR: 1, AND_OPERATOR: 2, OR_OPERATOR: 2}
@@ -197,11 +199,12 @@ def normalize_domain(domain):
         if expected == 0:                   # more than expected, like in [A, B]
             result[0:0] = [AND_OPERATOR]             # put an extra '&' in front
             expected = 1
-        result.append(token)
         if isinstance(token, (list, tuple)):  # domain term
             expected -= 1
+            token = tuple(token)
         else:
             expected += op_arity.get(token, 0) - 1
+        result.append(token)
     assert expected == 0, 'This domain is syntactically not correct: %s' % (domain)
     return result
 
@@ -250,6 +253,8 @@ def combine(operator, unit, zero, domains):
     """
     result = []
     count = 0
+    if domains == [unit]:
+        return unit
     for domain in domains:
         if domain == unit:
             continue
@@ -259,17 +264,17 @@ def combine(operator, unit, zero, domains):
             result += normalize_domain(domain)
             count += 1
     result = [operator] * (count - 1) + result
-    return result
+    return result or unit
 
 
 def AND(domains):
     """AND([D1,D2,...]) returns a domain representing D1 and D2 and ... """
-    return combine(AND_OPERATOR, TRUE_DOMAIN, FALSE_DOMAIN, domains)
+    return combine(AND_OPERATOR, [TRUE_LEAF], [FALSE_LEAF], domains)
 
 
 def OR(domains):
     """OR([D1,D2,...]) returns a domain representing D1 or D2 or ... """
-    return combine(OR_OPERATOR, FALSE_DOMAIN, TRUE_DOMAIN, domains)
+    return combine(OR_OPERATOR, [FALSE_LEAF], [TRUE_LEAF], domains)
 
 
 def distribute_not(domain):
@@ -402,7 +407,7 @@ def normalize_leaf(element):
 
 def is_operator(element):
     """ Test whether an object is a valid domain operator. """
-    return isinstance(element, pycompat.string_types) and element in DOMAIN_OPERATORS
+    return isinstance(element, str) and element in DOMAIN_OPERATORS
 
 
 def is_leaf(element, internal=False):
@@ -423,7 +428,7 @@ def is_leaf(element, internal=False):
     return (isinstance(element, tuple) or isinstance(element, list)) \
         and len(element) == 3 \
         and element[1] in INTERNAL_OPS \
-        and ((isinstance(element[0], pycompat.string_types) and element[0])
+        and ((isinstance(element[0], str) and element[0])
              or tuple(element) in (TRUE_LEAF, FALSE_LEAF))
 
 
@@ -436,19 +441,20 @@ def select_from_where(cr, select_field, from_table, where_field, where_ids, wher
     res = []
     if where_ids:
         if where_operator in ['<', '>', '>=', '<=']:
-            cr.execute('SELECT "%s" FROM "%s" WHERE "%s" %s %%s' % \
+            cr.execute('SELECT DISTINCT "%s" FROM "%s" WHERE "%s" %s %%s' % \
                 (select_field, from_table, where_field, where_operator),
                 (where_ids[0],))  # TODO shouldn't this be min/max(where_ids) ?
             res = [r[0] for r in cr.fetchall()]
         else:  # TODO where_operator is supposed to be 'in'? It is called with child_of...
             for i in range(0, len(where_ids), cr.IN_MAX):
                 subids = where_ids[i:i + cr.IN_MAX]
-                cr.execute('SELECT "%s" FROM "%s" WHERE "%s" IN %%s' % \
+                cr.execute('SELECT DISTINCT "%s" FROM "%s" WHERE "%s" IN %%s' % \
                     (select_field, from_table, where_field), (tuple(subids),))
                 res.extend([r[0] for r in cr.fetchall()])
     return res
 
 def select_distinct_from_where_not_null(cr, select_field, from_table):
+    # This method helper is deprecated, to remove in master
     cr.execute('SELECT distinct("%s") FROM "%s" where "%s" is not null' % (select_field, from_table, select_field))
     return [r[0] for r in cr.fetchall()]
 
@@ -710,9 +716,9 @@ class expression(object):
                 :var obj comodel: relational model of field (field.comodel)
                     (res_partner.bank_ids -> res.partner.bank)
         """
-        cr, uid, context = self.root_model.env.args
+        cr, uid, context, su = self.root_model.env.args
 
-        def to_ids(value, comodel):
+        def to_ids(value, comodel, leaf):
             """ Normalize a single id or name, or a list of those, into a list of ids
                 :param {int,long,basestring,list,tuple} value:
                     if int, long -> return [value]
@@ -722,11 +728,17 @@ class expression(object):
                         return the list of related ids
             """
             names = []
-            if isinstance(value, pycompat.string_types):
+            if isinstance(value, str):
                 names = [value]
-            elif value and isinstance(value, (tuple, list)) and all(isinstance(item, pycompat.string_types) for item in value):
+            elif value and isinstance(value, (tuple, list)) and all(isinstance(item, str) for item in value):
                 names = value
-            elif isinstance(value, pycompat.integer_types):
+            elif isinstance(value, int):
+                if not value:
+                    # given this nonsensical domain, it is generally cheaper to
+                    # interpret False as [], so that "X child_of False" will
+                    # match nothing
+                    _logger.warning("Unexpected domain [%s], interpreted as False", leaf)
+                    return []
                 return [value]
             if names:
                 return list({
@@ -741,7 +753,7 @@ class expression(object):
                 either as a range using the parent_path tree lookup field
                 (when available), or as an expanded [(left,in,child_ids)] """
             if not ids:
-                return FALSE_DOMAIN
+                return [FALSE_LEAF]
             if left_model._parent_store:
                 doms = OR([
                     [('parent_path', '=like', rec.parent_path + '%')]
@@ -853,7 +865,7 @@ class expression(object):
                 push(leaf)
 
             elif left == 'id' and operator in HIERARCHY_FUNCS:
-                ids2 = to_ids(right, model)
+                ids2 = to_ids(right, model, leaf.leaf)
                 dom = HIERARCHY_FUNCS[operator](left, ids2, model)
                 for dom_leaf in reversed(dom):
                     new_leaf = create_substitution_leaf(leaf, dom_leaf, model)
@@ -880,7 +892,7 @@ class expression(object):
             elif len(path) > 1 and field.store and field.type == 'one2many' and field.auto_join:
                 # res_partner.id = res_partner__bank_ids.partner_id
                 leaf.add_join_context(comodel, 'id', field.inverse_name, path[0])
-                domain = field.domain(model) if callable(field.domain) else field.domain
+                domain = field.get_domain_list(model)
                 push(create_substitution_leaf(leaf, (path[1], operator, right), comodel))
                 if domain:
                     domain = normalize_domain(domain)
@@ -931,7 +943,7 @@ class expression(object):
 
             # Applying recursivity on field(one2many)
             elif field.type == 'one2many' and operator in HIERARCHY_FUNCS:
-                ids2 = to_ids(right, comodel)
+                ids2 = to_ids(right, comodel, leaf.leaf)
                 if field.comodel_name != model._name:
                     dom = HIERARCHY_FUNCS[operator](left, ids2, comodel, prefix=field.comodel_name)
                 else:
@@ -940,15 +952,13 @@ class expression(object):
                     push(create_substitution_leaf(leaf, dom_leaf, model))
 
             elif field.type == 'one2many':
-                domain = field.domain
-                if callable(domain):
-                    domain = domain(model)
+                domain = field.get_domain_list(model)
                 inverse_is_int = comodel._fields[field.inverse_name].type == 'integer'
                 unwrap_inverse = (lambda ids: ids) if inverse_is_int else (lambda recs: recs.ids)
 
                 if right is not False:
                     # determine ids2 in comodel
-                    if isinstance(right, pycompat.string_types):
+                    if isinstance(right, str):
                         op2 = (TERM_OPERATORS_NEGATION[operator]
                                if operator in NEGATIVE_TERM_OPERATORS else operator)
                         ids2 = [x[0] for x in comodel.name_search(right, domain or [], op2, limit=None)]
@@ -973,26 +983,28 @@ class expression(object):
                     push(create_substitution_leaf(leaf, ('id', op1, ids1), model))
 
                 else:
-                    # determine ids1 = records with lines
                     if comodel._fields[field.inverse_name].store and not (inverse_is_int and domain):
-                        ids1 = select_distinct_from_where_not_null(cr, field.inverse_name, comodel._table)
+                        # rewrite condition to match records with/without lines
+                        op1 = 'inselect' if operator in NEGATIVE_TERM_OPERATORS else 'not inselect'
+                        subquery = 'SELECT "%s" FROM "%s" where "%s" is not null' % (field.inverse_name, comodel._table, field.inverse_name)
+                        push(create_substitution_leaf(leaf, ('id', op1, (subquery, [])), internal=True))
                     else:
                         comodel_domain = [(field.inverse_name, '!=', False)]
                         if inverse_is_int and domain:
                             comodel_domain += domain
                         recs = comodel.search(comodel_domain).sudo().with_context(prefetch_fields=False)
+                        # determine ids1 = records with lines
                         ids1 = unwrap_inverse(recs.mapped(field.inverse_name))
-
-                    # rewrite condition to match records with/without lines
-                    op1 = 'in' if operator in NEGATIVE_TERM_OPERATORS else 'not in'
-                    push(create_substitution_leaf(leaf, ('id', op1, ids1), model))
+                        # rewrite condition to match records with/without lines
+                        op1 = 'in' if operator in NEGATIVE_TERM_OPERATORS else 'not in'
+                        push(create_substitution_leaf(leaf, ('id', op1, ids1), model))
 
             elif field.type == 'many2many':
                 rel_table, rel_id1, rel_id2 = field.relation, field.column1, field.column2
 
                 if operator in HIERARCHY_FUNCS:
                     # determine ids2 in comodel
-                    ids2 = to_ids(right, comodel)
+                    ids2 = to_ids(right, comodel, leaf.leaf)
                     domain = HIERARCHY_FUNCS[operator]('id', ids2, comodel)
                     ids2 = comodel.search(domain).ids
 
@@ -1001,14 +1013,12 @@ class expression(object):
                         push(create_substitution_leaf(leaf, ('id', 'in', ids2), model))
                     else:
                         subquery = 'SELECT "%s" FROM "%s" WHERE "%s" IN %%s' % (rel_id1, rel_table, rel_id2)
-                        push(create_substitution_leaf(leaf, ('id', 'inselect', (subquery, [tuple(ids2)])), internal=True))
+                        push(create_substitution_leaf(leaf, ('id', 'inselect', (subquery, [tuple(ids2) or (None,)])), internal=True))
 
                 elif right is not False:
                     # determine ids2 in comodel
-                    if isinstance(right, pycompat.string_types):
-                        domain = field.domain
-                        if callable(domain):
-                            domain = domain(model)
+                    if isinstance(right, str):
+                        domain = field.get_domain_list(model)
                         op2 = (TERM_OPERATORS_NEGATION[operator]
                                if operator in NEGATIVE_TERM_OPERATORS else operator)
                         ids2 = [x[0] for x in comodel.name_search(right, domain or [], op2, limit=None)]
@@ -1024,16 +1034,14 @@ class expression(object):
                     push(create_substitution_leaf(leaf, ('id', subop, (subquery, [ids2])), internal=True))
 
                 else:
-                    # determine ids1 = records with relations
-                    ids1 = select_distinct_from_where_not_null(cr, rel_id1, rel_table)
-
                     # rewrite condition to match records with/without relations
-                    op1 = 'in' if operator in NEGATIVE_TERM_OPERATORS else 'not in'
-                    push(create_substitution_leaf(leaf, ('id', op1, ids1), model))
+                    op1 = 'inselect' if operator in NEGATIVE_TERM_OPERATORS else 'not inselect'
+                    subquery = 'SELECT "%s" FROM "%s" where "%s" is not null' % (rel_id1, rel_table, rel_id1)
+                    push(create_substitution_leaf(leaf, ('id', op1, (subquery, [])), internal=True))
 
             elif field.type == 'many2one':
                 if operator in HIERARCHY_FUNCS:
-                    ids2 = to_ids(right, comodel)
+                    ids2 = to_ids(right, comodel, leaf.leaf)
                     if field.comodel_name != model._name:
                         dom = HIERARCHY_FUNCS[operator](left, ids2, comodel, prefix=field.comodel_name)
                     else:
@@ -1057,8 +1065,8 @@ class expression(object):
                             res_ids.append(False)  # TODO this should not be appended if False was in 'right'
                         return left, 'in', res_ids
                     # resolve string-based m2o criterion into IDs
-                    if isinstance(right, pycompat.string_types) or \
-                            right and isinstance(right, (tuple, list)) and all(isinstance(item, pycompat.string_types) for item in right):
+                    if isinstance(right, str) or \
+                            right and isinstance(right, (tuple, list)) and all(isinstance(item, str) for item in right):
                         push(create_substitution_leaf(leaf, _get_expression(comodel, left, right, operator), model))
                     else:
                         # right == [] or right == False and all other cases are handled by __leaf_to_sql()
@@ -1089,12 +1097,22 @@ class expression(object):
             # -------------------------------------------------
 
             else:
-                if field.type == 'datetime' and right and len(right) == 10:
-                    if operator in ('>', '<='):
-                        right += ' 23:59:59'
+                if field.type == 'datetime' and right:
+                    if isinstance(right, str) and len(right) == 10:
+                        if operator in ('>', '<='):
+                            right += ' 23:59:59'
+                        else:
+                            right += ' 00:00:00'
+                        push(create_substitution_leaf(leaf, (left, operator, right), model))
+                    elif isinstance(right, date) and not isinstance(right, datetime):
+                        if operator in ('>', '<='):
+                            right = datetime.combine(right, time.max)
+                        else:
+                            right = datetime.combine(right, time.min)
+                        push(create_substitution_leaf(leaf, (left, operator, right), model))
                     else:
-                        right += ' 00:00:00'
-                    push(create_substitution_leaf(leaf, (left, operator, right), model))
+                        push_result(leaf)
+
 
                 elif field.translate is True and right:
                     need_wildcard = operator in ('like', 'ilike', 'not like', 'not ilike')
@@ -1130,7 +1148,7 @@ class expression(object):
 
                     params = (
                         model._name + ',' + left,
-                        model.env.lang or 'en_US',
+                        get_lang(model.env).code,
                         'model',
                         right,
                     )
@@ -1249,11 +1267,11 @@ class expression(object):
             column = '%s.%s' % (table_alias, _quote(left))
             query = '(%s %s %s)' % (unaccent(column + cast), sql_operator, unaccent(format))
 
+            if (need_wildcard and not right) or (right and operator in NEGATIVE_TERM_OPERATORS):
+                query = '(%s OR %s."%s" IS NULL)' % (query, table_alias, left)
+
             if need_wildcard:
-                native_str = pycompat.to_native(right)
-                if not native_str:
-                    query = '(%s OR %s."%s" IS NULL)' % (query, table_alias, left)
-                params = ['%%%s%%' % native_str]
+                params = ['%%%s%%' % pycompat.to_text(right)]
             else:
                 field = model._fields[left]
                 params = [field.convert_to_column(right, model, validate=False)]

@@ -25,6 +25,7 @@ GOOGLE_API_BASE_URL = 'https://www.googleapis.com'
 # FIXME : this needs to become an AbstractModel, to be inhereted by google_calendar_service and google_drive_service
 class GoogleService(models.TransientModel):
     _name = 'google.service'
+    _description = 'Google Service'
 
     @api.model
     def generate_refresh_token(self, service, authorization_code):
@@ -127,7 +128,7 @@ class GoogleService(models.TransientModel):
         client_secret = get_param('google_%s_client_secret' % (service,), default=False)
 
         if not client_id or not client_secret:
-            raise UserError(_("The account for the Google service '%s' is not configured") % service)
+            raise UserError(_("The account for the Google service '%s' is not configured.") % service)
 
         headers = {"content-type": "application/x-www-form-urlencoded"}
         data = {
@@ -143,7 +144,7 @@ class GoogleService(models.TransientModel):
         except requests.HTTPError as error:
             if error.response.status_code == 400:  # invalid grant
                 with registry(request.session.db).cursor() as cur:
-                    self.env(cur)['res.users'].browse(self.env.uid).write({'google_%s_rtoken' % service: False})
+                    self.env(cur)['res.users'].browse(self.env.uid).sudo().write({'google_%s_rtoken' % service: False})
             error_key = error.response.json().get("error", "nc")
             _logger.exception("Bad google request : %s !", error_key)
             error_msg = _("Something went wrong during your token generation. Maybe your Authorization Code is invalid or already expired [%s]") % error_key

@@ -8,7 +8,6 @@ class TestBatchPicking(TransactionCase):
         super(TestBatchPicking, self).setUp()
         self.stock_location = self.env.ref('stock.stock_location_stock')
         self.customer_location = self.env.ref('stock.stock_location_customers')
-        self.partner_delta_id = self.env['ir.model.data'].xmlid_to_res_id('base.res_partner_4')
         self.picking_type_out = self.env['ir.model.data'].xmlid_to_res_id('stock.picking_type_out')
         self.productA = self.env['product.product'].create({
             'name': 'Product A',
@@ -24,8 +23,8 @@ class TestBatchPicking(TransactionCase):
         self.picking_client_1 = self.env['stock.picking'].create({
             'location_id': self.stock_location.id,
             'location_dest_id': self.customer_location.id,
-            'partner_id': self.partner_delta_id,
             'picking_type_id': self.picking_type_out,
+            'company_id': self.env.company.id,
         })
 
         self.env['stock.move'].create({
@@ -41,8 +40,8 @@ class TestBatchPicking(TransactionCase):
         self.picking_client_2 = self.env['stock.picking'].create({
             'location_id': self.stock_location.id,
             'location_dest_id': self.customer_location.id,
-            'partner_id': self.partner_delta_id,
             'picking_type_id': self.picking_type_out,
+            'company_id': self.env.company.id,
         })
 
         self.env['stock.move'].create({
@@ -57,6 +56,7 @@ class TestBatchPicking(TransactionCase):
 
         self.batch = self.env['stock.picking.batch'].create({
             'name': 'Batch 1',
+            'company_id': self.env.company.id,
             'picking_ids': [(4, self.picking_client_1.id), (4, self.picking_client_2.id)]
         })
 
@@ -83,8 +83,8 @@ class TestBatchPicking(TransactionCase):
         quant_B = self.env['stock.quant']._gather(self.productB, self.stock_location)
 
         # ensure that quantity for picking has been moved
-        self.assertFalse(quant_A)
-        self.assertFalse(quant_B)
+        self.assertFalse(sum(quant_A.mapped('quantity')))
+        self.assertFalse(sum(quant_B.mapped('quantity')))
 
     def test_simple_batch_with_wizard(self):
         """ Test a simple batch picking with all quantity for picking available.
@@ -113,8 +113,8 @@ class TestBatchPicking(TransactionCase):
         quant_B = self.env['stock.quant']._gather(self.productB, self.stock_location)
 
         # ensure that quantity for picking has been moved
-        self.assertFalse(quant_A)
-        self.assertFalse(quant_B)
+        self.assertFalse(sum(quant_A.mapped('quantity')))
+        self.assertFalse(sum(quant_B.mapped('quantity')))
 
     def test_batch_with_backorder_wizard(self):
         """ Test a simple batch picking with only one quantity fully available.
@@ -148,8 +148,8 @@ class TestBatchPicking(TransactionCase):
         quant_B = self.env['stock.quant']._gather(self.productB, self.stock_location)
 
         # ensure that quantity for picking has been moved
-        self.assertFalse(quant_A)
-        self.assertFalse(quant_B)
+        self.assertFalse(sum(quant_A.mapped('quantity')))
+        self.assertFalse(sum(quant_B.mapped('quantity')))
 
     def test_batch_with_immediate_transfer_and_backorder_wizard(self):
         """ Test a simple batch picking with only one product fully available.
@@ -184,8 +184,8 @@ class TestBatchPicking(TransactionCase):
         quant_B = self.env['stock.quant']._gather(self.productB, self.stock_location)
 
         # ensure that quantity for picking has been moved
-        self.assertFalse(quant_A)
-        self.assertFalse(quant_B)
+        self.assertFalse(sum(quant_A.mapped('quantity')))
+        self.assertFalse(sum(quant_B.mapped('quantity')))
 
     def test_batch_with_immediate_transfer_and_backorder_wizard_with_manual_operations(self):
         """ Test a simple batch picking with only one quantity fully available.
@@ -221,5 +221,5 @@ class TestBatchPicking(TransactionCase):
         quant_B = self.env['stock.quant']._gather(self.productB, self.stock_location)
 
         # ensure that quantity for picking has been moved
-        self.assertFalse(quant_A)
-        self.assertFalse(quant_B)
+        self.assertFalse(sum(quant_A.mapped('quantity')))
+        self.assertFalse(sum(quant_B.mapped('quantity')))
