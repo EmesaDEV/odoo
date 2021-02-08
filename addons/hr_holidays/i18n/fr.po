@@ -9,6 +9,8 @@
 # Nathan Grognet <ngr@odoo.com>, 2018
 # Jérôme Tanché <jerome.tanche@ouest-dsi.fr>, 2018
 # Martin Trigaux, 2019
+# Jonathan Quique <jqu@odoo.com>, 2020
+# Nicolas Martinelli, 2020
 # Cécile Collart <cco@odoo.com>, 2020
 # 
 msgid ""
@@ -188,12 +190,12 @@ msgstr "23:30"
 #. module: hr_holidays
 #: selection:hr.leave,request_hour_from:0 selection:hr.leave,request_hour_to:0
 msgid "12:00 AM"
-msgstr "12:00"
+msgstr "00:00"
 
 #. module: hr_holidays
 #: selection:hr.leave,request_hour_from:0 selection:hr.leave,request_hour_to:0
 msgid "12:00 PM"
-msgstr "00:00"
+msgstr "12:00"
 
 #. module: hr_holidays
 #: selection:hr.leave,request_hour_from:0 selection:hr.leave,request_hour_to:0
@@ -739,7 +741,7 @@ msgstr "Nombre de pièces jointes"
 #. module: hr_holidays
 #: model:ir.model.fields,field_description:hr_holidays.field_hr_leave_allocation__accrual_limit
 msgid "Balance limit"
-msgstr ""
+msgstr "Limite du solde"
 
 #. module: hr_holidays
 #: selection:hr.leave.type,color_name:0
@@ -971,7 +973,7 @@ msgstr "Jours Alloués"
 #. module: hr_holidays
 #: model:ir.model.fields,field_description:hr_holidays.field_hr_leave__request_unit_custom
 msgid "Days-long custom hours"
-msgstr ""
+msgstr "Personnaliser l'horaire de la journée entière"
 
 #. module: hr_holidays
 #: model_terms:ir.ui.view,arch_db:hr_holidays.hr_leave_allocation_view_kanban
@@ -1267,7 +1269,7 @@ msgstr "Demi-journée"
 #. module: hr_holidays
 #: model:ir.model,name:hr_holidays.model_report_hr_holidays_report_holidayssummary
 msgid "Holidays Summary Report"
-msgstr ""
+msgstr "Rapport Résumé des Vacances"
 
 #. module: hr_holidays
 #: model:ir.model.fields,field_description:hr_holidays.field_hr_leave__request_hour_from
@@ -1998,7 +2000,7 @@ msgstr "Parent"
 #. module: hr_holidays
 #: model:hr.leave.type,name:hr_holidays.hr_holiday_status_dv
 msgid "Parental Leaves"
-msgstr ""
+msgstr "Congés parentaux"
 
 #. module: hr_holidays
 #: model:ir.ui.menu,name:hr_holidays.hr_holidays_menu_manager_payroll

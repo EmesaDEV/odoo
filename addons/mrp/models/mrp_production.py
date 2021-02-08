@@ -302,7 +302,16 @@ class MrpProduction(models.Model):
             wo_done = True
             if any([x.state not in ('done', 'cancel') for x in production.workorder_ids]):
                 wo_done = False
-            production.check_to_done = production.is_locked and done_moves and (qty_produced >= production.product_qty) and (production.state not in ('done', 'cancel')) and wo_done
+            production.check_to_done = (
+                production.is_locked
+                and done_moves
+                and float_compare(
+                    qty_produced, production.product_qty, precision_rounding=production.product_uom_id.rounding
+                )
+                != -1
+                and (production.state not in ("done", "cancel"))
+                and wo_done
+            )
             production.qty_produced = qty_produced
         return True
 
@@ -440,6 +449,7 @@ class MrpProduction(models.Model):
         v = self._get_raw_move_data(bom_line, line_data)
         if not v:
             return self.env['stock.move']
+        v['state'] = 'confirmed'
         return self.env['stock.move'].create(v)
 
     def _get_raw_move_data(self, bom_line, line_data):
