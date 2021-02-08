@@ -161,9 +161,24 @@ class ProductProduct(models.Model):
         if self.cost_method in ('average', 'fifo'):
             fifo_vals = self._run_fifo(abs(quantity), company)
             vals['remaining_qty'] = fifo_vals.get('remaining_qty')
+            # in case of AVCO, fix rounding issue of standard price when needed.
+            if self.cost_method == 'average':
+                rounding_error = self.standard_price * self.quantity_svl - self.value_svl
+                vals['value'] += self.env.company.currency_id.round(rounding_error)
+                if self.quantity_svl:
+                    vals['unit_cost'] = self.value_svl / self.quantity_svl
             if self.cost_method == 'fifo':
                 vals.update(fifo_vals)
         return vals
+
+    def write(self, vals):
+        res = super(ProductProduct, self).write(vals)
+        if self.env.context.get('import_file') and not self.env.context.get('import_standard_price'):
+            if 'standard_price' in vals:
+                for product in self:
+                    counterpart_account_id = product.property_account_expense_id.id or product.categ_id.property_account_expense_categ_id.id
+                    product.with_context(import_standard_price=True)._change_standard_price(vals['standard_price'], counterpart_account_id)
+        return res
 
     def _change_standard_price(self, new_price, counterpart_account_id=False):
         """Helper to create the stock valuation layers and the account moves
@@ -239,7 +254,8 @@ class ProductProduct(models.Model):
             }
             am_vals_list.append(move_vals)
         account_moves = self.env['account.move'].create(am_vals_list)
-        account_moves.post()
+        if account_moves:
+            account_moves.post()
 
         # Actually update the standard price.
         self.with_context(force_company=company_id.id).sudo().write({'standard_price': new_price})
@@ -249,7 +265,7 @@ class ProductProduct(models.Model):
 
         # Find back incoming stock valuation layers (called candidates here) to value `quantity`.
         qty_to_take_on_candidates = quantity
-        candidates = self.env['stock.valuation.layer'].sudo().search([
+        candidates = self.env['stock.valuation.layer'].sudo().with_context(active_test=False).search([
             ('product_id', '=', self.id),
             ('remaining_qty', '>', 0),
             ('company_id', '=', company.id),
@@ -588,6 +604,8 @@ class ProductProduct(models.Model):
         :rtype: float
         """
         self.ensure_one()
+        if not qty_to_invoice:
+            return 0.0
 
         candidates = stock_moves\
             .sudo()\

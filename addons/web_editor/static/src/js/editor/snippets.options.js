@@ -399,6 +399,9 @@ registry.sizing = SnippetOption.extend({
         this.$handles.on('mousedown', function (ev) {
             ev.preventDefault();
 
+            // First update size values as some element sizes may not have been
+            // initialized on option start (hidden slides, etc)
+            resizeValues = self._getSize();
             var $handle = $(ev.currentTarget);
 
             var compass = false;
@@ -470,7 +473,7 @@ registry.sizing = SnippetOption.extend({
             };
             var bodyMouseUp = function () {
                 $body.off('mousemove', bodyMouseMove);
-                $body.off('mouseup', bodyMouseUp);
+                $(window).off('mouseup', bodyMouseUp);
                 $body.removeClass(cursor);
                 $handle.removeClass('o_active');
 
@@ -491,7 +494,7 @@ registry.sizing = SnippetOption.extend({
                 }, 0);
             };
             $body.on('mousemove', bodyMouseMove);
-            $body.on('mouseup', bodyMouseUp);
+            $(window).on('mouseup', bodyMouseUp);
         });
 
         return def;
@@ -1400,9 +1403,7 @@ registry.many2one = SnippetOption.extend({
             self.$target.html($li.data('name'));
         }
 
-        _.defer(function () {
-            self.trigger_up('deactivate_snippet');
-        });
+        this._clear();
     }
 });
 

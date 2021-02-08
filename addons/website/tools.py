@@ -22,7 +22,7 @@ def get_video_embed_code(video_url):
     # Regex for few of the widely used video hosting services
     ytRegex = r'^(?:(?:https?:)?\/\/)?(?:www\.)?(?:youtu\.be\/|youtube(-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((?:\w|-){11})(?:\S+)?$'
     vimeoRegex = r'\/\/(player.)?vimeo.com\/([a-z]*\/)*([0-9]{6,11})[?]?.*'
-    dmRegex = r'.+dailymotion.com\/(video|hub|embed)\/([^_]+)[^#]*(#video=([^_&]+))?'
+    dmRegex = r'.+dailymotion.com\/(video|hub|embed)\/([^_?]+)[^#]*(#video=([^_&]+))?'
     igRegex = r'(.*)instagram.com\/p\/(.[a-zA-Z0-9]*)'
     ykuRegex = r'(.*).youku\.com\/(v_show\/id_|embed\/)(.+)'
 
@@ -100,6 +100,9 @@ class MockRequest(object):
             'httprequest': {
                 'path': '/hello/',
                 'app': app,
+                'environ': {
+                    'REMOTE_ADDR': '127.0.0.1',
+                },
                 'cookies': kw.get('cookies', {}),
             },
             'lang': lang,
@@ -113,9 +116,9 @@ class MockRequest(object):
             },
             'website': kw.get('website'),
         })
-        odoo.http._request_stack.push(self.request)
 
     def __enter__(self):
+        odoo.http._request_stack.push(self.request)
         return self.request
 
     def __exit__(self, exc_type, exc_value, traceback):

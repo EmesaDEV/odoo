@@ -1110,7 +1110,7 @@ var FieldX2Many = AbstractField.extend({
             // case, we can re-render the whole subview.
             if (command && command.operation === 'UPDATE' && command.data) {
                 var state = record.data[this.name];
-                var fieldNames = state.getFieldNames();
+                var fieldNames = state.getFieldNames({ viewType: 'list' });
                 this._reset(record, ev);
                 return this.renderer.confirmUpdate(state, command.id, fieldNames, ev.initialEvent);
             }
@@ -2192,6 +2192,7 @@ var FieldMany2ManyTags = AbstractField.extend({
     fieldsToFetch: {
         display_name: {type: 'char'},
     },
+    limit: 1000,
 
     /**
      * @constructor
@@ -2634,7 +2635,11 @@ var FieldStatus = AbstractField.extend({
         // Retro-compatibility: clickable used to be defined in the field attrs
         // instead of options.
         // If not set, the statusbar is not clickable.
-        this.isClickable = !!this.attrs.clickable || !!this.nodeOptions.clickable;
+        try {
+            this.isClickable = !!JSON.parse(this.attrs.clickable);
+        } catch (_) {
+            this.isClickable = !!this.nodeOptions.clickable;
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -2873,6 +2878,27 @@ var FieldRadio = FieldSelection.extend({
         return true;
     },
 
+    /**
+     * Returns the currently-checked radio button, or the first one if no radio
+     * button is checked.
+     *
+     * @override
+     */
+    getFocusableElement: function () {
+        var checked = this.$("[checked='true']");
+        return checked.length ? checked : this.$("[data-index='0']");
+    },
+
+    /**
+     * Associates the 'for' attribute to the radiogroup, instead of the selected
+     * radio button.
+     *
+     * @param {string} id
+     */
+    setIDForLabel: function (id) {
+        this.$el.attr('id', id);
+    },
+
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
@@ -2890,11 +2916,14 @@ var FieldRadio = FieldSelection.extend({
             currentValue = this.value;
         }
         this.$el.empty();
+        this.$el.attr('role', 'radiogroup')
+            .attr('aria-label', this.string);
         _.each(this.values, function (value, index) {
             self.$el.append(qweb.render('FieldRadio.button', {
                 checked: value[0] === currentValue,
                 id: self.unique_id + '_' + value[0],
                 index: index,
+                name: self.unique_id,
                 value: value,
             }));
         });
